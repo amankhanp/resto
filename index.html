@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dar Al-Taste — Ledger</title>
+<title>Restro — Ledger</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -283,7 +283,7 @@ th.sortable-th.active-sort{color:#fff;}
 <body>
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
-    <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> Dar Al-Taste</h1>
+    <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> Restro</h1>
     <p class="login-sub">Sign in to your account</p>
     <form id="loginForm">
       <div class="field"><label>Email</label><input type="email" id="loginEmail" required autocomplete="username"></div>
@@ -295,14 +295,14 @@ th.sortable-th.active-sort{color:#fff;}
   </div>
 </div>
 <div class="mobile-topbar">
-  <span class="brand-mini"><i class="fa-solid fa-utensils"></i> <span id="brandTitleMobile">Dar Al-Taste</span></span>
+  <span class="brand-mini"><i class="fa-solid fa-utensils"></i> <span id="brandTitleMobile">Restro</span></span>
   <button id="btnMobileMenu" aria-label="Open menu">&#9776;</button>
 </div>
 <div class="menu-backdrop" id="menuBackdrop"></div>
 <div class="app" id="appShell" style="display:none;">
   <div class="sidebar" id="sidebar">
     <div class="brand">
-      <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> <span id="brandTitle">Dar Al-Taste</span></h1>
+      <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> <span id="brandTitle">Restro</span></h1>
       <span id="brandSub">Private ledger</span>
     </div>
     <div id="nav"></div>
@@ -1433,7 +1433,7 @@ function renderAll(){
   const brandTitleMobile = document.getElementById('brandTitleMobile');
 
   if(viewMode === 'orgHome'){
-    if(brandTitle) brandTitle.textContent = 'Dar Al-Taste';
+    if(brandTitle) brandTitle.textContent = 'Restro';
     if(brandSub) brandSub.textContent = 'Organizer console';
     if(brandTitleMobile) brandTitleMobile.textContent = 'Organizer console';
     document.getElementById('nav').innerHTML = '';
@@ -1443,9 +1443,9 @@ function renderAll(){
   }
 
   if(viewMode === 'noAccess'){
-    if(brandTitle) brandTitle.textContent = 'Dar Al-Taste';
+    if(brandTitle) brandTitle.textContent = 'Restro';
     if(brandSub) brandSub.textContent = '';
-    if(brandTitleMobile) brandTitleMobile.textContent = 'Dar Al-Taste';
+    if(brandTitleMobile) brandTitleMobile.textContent = 'Restro';
     document.getElementById('nav').innerHTML = '';
     setLedgerChromeVisible(false);
     renderNoAccess(document.getElementById('main'));
@@ -1453,9 +1453,9 @@ function renderAll(){
   }
 
   // viewMode === 'ledger'
-  if(brandTitle) brandTitle.textContent = currentRestaurantName || 'Dar Al-Taste';
+  if(brandTitle) brandTitle.textContent = currentRestaurantName || 'Restro';
   if(brandSub) brandSub.textContent = isOrganizer ? 'Organizer view' : 'Private ledger';
-  if(brandTitleMobile) brandTitleMobile.textContent = currentRestaurantName || 'Dar Al-Taste';
+  if(brandTitleMobile) brandTitleMobile.textContent = currentRestaurantName || 'Restro';
   setLedgerChromeVisible(true);
   renderNav();
   const main = document.getElementById('main');
@@ -2086,7 +2086,7 @@ function renderDashboard(main){
   main.innerHTML = `
     ${noDataAtAll ? `
     <div class="getting-started">
-      <h3><i class="fa-solid fa-hand"></i> Welcome to Dar Al-Taste</h3>
+      <h3><i class="fa-solid fa-hand"></i> Welcome to ${escapeHtml(currentRestaurantName || 'your restaurant')}</h3>
       <div class="page-sub">You have no sales or expenses logged yet. Get started:</div>
       <button class="btn" id="gsAddSale">+ Log a sale</button>
       <button class="btn secondary" id="gsAddExpense">+ Log an expense</button>
@@ -2944,13 +2944,16 @@ function buildExcelReport(){
 </Workbook>`;
   return xml;
 }
+function slugifyRestaurantName(){
+  return (currentRestaurantName || 'restro').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'restro';
+}
 document.getElementById('btnDownloadExcel').onclick = ()=>{
   const xml = buildExcelReport();
   const blob = new Blob([xml], {type:'application/vnd.ms-excel'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `dar-al-taste-report-${new Date().toISOString().slice(0,10)}.xls`;
+  a.download = `${slugifyRestaurantName()}-report-${new Date().toISOString().slice(0,10)}.xls`;
   a.click();
   URL.revokeObjectURL(url);
 };
@@ -2996,7 +2999,7 @@ document.getElementById('btnExport').onclick = ()=>{
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `dar-al-taste-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `${slugifyRestaurantName()}-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
   setLastBackupDate(new Date().toISOString().slice(0,10));
@@ -3175,4 +3178,3 @@ document.getElementById('btnSignOut').addEventListener('click', async ()=>{
 </script>
 </body>
 </html>
-
