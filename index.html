@@ -1,0 +1,2916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dar Al-Taste — Ledger</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#1c1b19;
+  --ink-soft:#4a4640;
+  --paper:#fbf7f0;
+  --paper-line:#e8e0d0;
+  --card:#ffffff;
+  --turmeric:#c98a17;
+  --turmeric-deep:#a3700f;
+  --tomato:#b23a2e;
+  --tomato-bg:#fbe4e1;
+  --amber:#c98a17;
+  --amber-bg:#faedd3;
+  --sage:#5f7d54;
+  --sage-bg:#e3ebdd;
+  --focus:#2e6fd6;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:radial-gradient(circle at 10% 0%, #fdf9f2 0%, var(--paper) 45%), var(--paper);
+  color:var(--ink);}
+h1,h2,h3{font-family:Georgia,'Times New Roman',serif;margin:0 0 4px 0;}
+.app{display:flex;min-height:100vh;}
+
+/* ---- Sidebar ---- */
+.sidebar{width:220px;background:linear-gradient(180deg,#221f1a 0%,var(--ink) 55%,#151412 100%);
+  color:#efe7d8;flex-shrink:0;padding:22px 0;display:flex;flex-direction:column;
+  box-shadow:2px 0 14px rgba(0,0,0,.18);position:relative;z-index:20;}
+.brand{padding:0 20px 20px 20px;border-bottom:1px solid #35322c;margin-bottom:10px;}
+.brand h1{font-size:19px;color:#fff;display:flex;align-items:center;gap:8px;}
+.brand-icon{font-size:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));}
+.brand span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#b7ac93;}
+.nav-item{padding:12px 20px;cursor:pointer;font-size:14px;border-left:3px solid transparent;display:flex;align-items:center;gap:10px;transition:background .15s ease, padding-left .15s ease;}
+.nav-item:hover{background:#2a2822;padding-left:23px;}
+.nav-item.active{background:linear-gradient(90deg,#2f2b23,#26231d);border-left-color:var(--turmeric);color:#fff;font-weight:600;}
+.nav-icon{font-size:15px;width:18px;text-align:center;flex-shrink:0;}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:#6b6558;display:none;}
+.sidebar-footer{margin-top:auto;padding:16px 20px 0 20px;border-top:1px solid #35322c;}
+.sidebar-footer button{width:100%;margin-bottom:8px;font-size:12px;padding:9px 8px;background:#2a2822;color:#efe7d8;border:1px solid #423f37;border-radius:6px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:background .15s ease,transform .1s ease;}
+.sidebar-footer button i{width:14px;text-align:center;flex-shrink:0;}
+.sidebar-footer button:hover{background:#35322c;transform:translateX(2px);}
+
+/* ---- Main ---- */
+.main{flex:1;padding:28px 34px;overflow-x:auto;}
+.page-title{margin-bottom:4px;}
+.page-sub{color:var(--ink-soft);font-size:13px;margin-bottom:22px;}
+
+/* ---- Cards ---- */
+.cards-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;}
+.card{background:var(--card);border:1px solid var(--paper-line);border-radius:10px;padding:14px 18px;min-width:150px;flex:1;
+  box-shadow:0 1px 3px rgba(28,27,25,.05);transition:transform .12s ease, box-shadow .12s ease;}
+.card:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(28,27,25,.09);}
+.card .label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:6px;}
+.card .value{font-family:Georgia,serif;font-size:26px;font-weight:700;color:var(--ink);}
+.card.accent .value{color:var(--turmeric-deep);}
+.card.profit .value{color:var(--sage);}
+.card.profit.neg .value{color:var(--tomato);}
+.cards-row.mini{gap:10px;margin-bottom:8px;}
+.cards-row.mini .card{padding:8px 12px;min-width:110px;}
+.cards-row.mini .card .label{font-size:9.5px;margin-bottom:3px;}
+.cards-row.mini .card .value{font-size:16px;}
+
+/* ---- Section ---- */
+.section{background:var(--card);border:1px solid var(--paper-line);border-radius:10px;padding:18px 20px;margin-bottom:20px;
+  box-shadow:0 1px 4px rgba(28,27,25,.05);}
+.section h3{font-size:15px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--paper-line);display:flex;align-items:center;gap:8px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:820px){.two-col{grid-template-columns:1fr;}}
+.three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+@media(max-width:1080px){.three-col{grid-template-columns:1fr 1fr;}}
+@media(max-width:820px){.three-col{grid-template-columns:1fr;}}
+.sub-h{font-size:13px;margin-bottom:10px;font-weight:600;}
+.sub-h-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sub-h-row .sub-h{margin-bottom:0;}
+.inline-note{font-size:10.5px;color:var(--ink-soft);font-weight:400;white-space:nowrap;}
+.count-pill{font-size:13px;font-weight:700;background:var(--card);border:1px solid var(--paper-line);border-radius:20px;padding:1px 10px;}
+.scroll-box{max-height:210px;overflow-y:auto;border:1px solid var(--paper-line);border-radius:6px;}
+.scroll-box.bars{padding:10px 12px 4px 12px;}
+
+/* ---- Bar chart (css based) ---- */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px;}
+.bar-label{width:150px;flex-shrink:0;color:var(--ink-soft);}
+.bar-track{flex:1;background:var(--paper);border-radius:4px;overflow:hidden;height:16px;box-shadow:inset 0 1px 2px rgba(0,0,0,.06);}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--turmeric),var(--turmeric-deep));border-radius:4px;transition:width .3s ease;}
+.bar-fill.tomato{background:linear-gradient(90deg,#c9483a,var(--tomato));}
+.bar-value{width:90px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0;}
+
+/* ---- Table ---- */
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:linear-gradient(180deg,#28251f,var(--ink));color:#efe7d8;text-align:left;padding:9px 10px;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;position:sticky;top:0;z-index:1;}
+td{padding:7px 10px;border-bottom:1px solid var(--paper-line);white-space:nowrap;}
+tbody tr:nth-child(even) td{background:#faf7f0;}
+tr:hover td{background:#f5ecd9 !important;}
+.status-pill{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block;}
+.status-LOW{background:var(--tomato-bg);color:var(--tomato);}
+.status-MEDIUM{background:var(--amber-bg);color:var(--amber);}
+.status-FULL{background:var(--sage-bg);color:var(--sage);}
+.actions button{border:none;background:none;cursor:pointer;font-size:13px;padding:2px 6px;}
+.actions .edit{color:var(--focus);}
+.actions .del{color:var(--tomato);}
+.table-wrap{overflow-x:auto;}
+
+/* ---- Form ---- */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:14px;}
+.field label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em;}
+.field input,.field select{width:100%;padding:7px 8px;border:1px solid var(--paper-line);border-radius:5px;font-size:13px;background:#fff;}
+.field input:focus,.field select:focus{outline:2px solid var(--focus);outline-offset:1px;}
+.form-actions{display:flex;gap:8px;}
+.btn{padding:8px 16px;border-radius:6px;border:1px solid var(--turmeric-deep);
+  background:linear-gradient(180deg,var(--turmeric),var(--turmeric-deep));color:#fff;font-size:13px;font-weight:600;
+  cursor:pointer;box-shadow:0 1px 3px rgba(163,112,15,.35);transition:transform .1s ease, box-shadow .1s ease;}
+.btn:hover{background:linear-gradient(180deg,var(--turmeric-deep),#8a5e0d);transform:translateY(-1px);box-shadow:0 4px 8px rgba(163,112,15,.35);}
+.btn:active{transform:translateY(0);}
+.btn.secondary{background:#fff;color:var(--ink-soft);border-color:var(--paper-line);box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.btn.secondary:hover{background:var(--paper);transform:translateY(-1px);}
+.btn.danger{background:linear-gradient(180deg,#c9483a,var(--tomato));border-color:#8f2d23;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ---- Categories lists ---- */
+.cat-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+.cat-list h4{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:8px;}
+.cat-list ul{list-style:none;margin:0 0 10px 0;padding:0;}
+.cat-list li{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid var(--paper-line);font-size:13px;}
+.cat-list li button{border:none;background:none;color:var(--tomato);cursor:pointer;font-size:12px;}
+.cat-add{display:flex;gap:6px;}
+.cat-add input{flex:1;padding:6px 8px;border:1px solid var(--paper-line);border-radius:5px;font-size:12px;}
+.cat-add button{padding:6px 10px;border-radius:5px;border:1px solid var(--turmeric-deep);background:var(--turmeric);color:#fff;cursor:pointer;font-size:12px;}
+
+.period-row{display:flex;gap:14px;align-items:flex-end;margin-bottom:18px;flex-wrap:wrap;}
+.period-row .field{width:170px;}
+
+/* ---- Dashboard header + compact period picker ---- */
+.dash-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+.dash-header .page-title, .dash-header .page-sub{margin-bottom:0;}
+.period-compact{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;background:var(--card);border:1px solid var(--paper-line);border-radius:8px;padding:10px 12px;}
+.period-compact .field{width:130px;margin-bottom:0;}
+.period-compact .field label{font-size:10px;margin-bottom:3px;}
+.period-compact input{padding:6px 7px;font-size:12px;}
+.period-compact .btn{padding:7px 14px;font-size:12px;white-space:nowrap;}
+
+/* ---- KPI cards (dashboard) ---- */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:22px;}
+.kpi-card{position:relative;background:var(--card);border:1px solid var(--paper-line);border-radius:10px;padding:14px 16px 14px 18px;overflow:hidden;
+  box-shadow:0 1px 3px rgba(28,27,25,.05);transition:transform .12s ease, box-shadow .12s ease;}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(28,27,25,.1);}
+.kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#c9c2b0;}
+.kpi-card.delivery::before{background:var(--turmeric);}
+.kpi-card.pickup::before{background:var(--sage);}
+.kpi-card.catering::before{background:var(--tomato);}
+.kpi-icon{font-size:16px;position:absolute;top:12px;right:14px;opacity:.5;}
+.kpi-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:7px;}
+.kpi-value{font-family:Georgia,serif;font-size:23px;font-weight:700;color:var(--ink);}
+.kpi-card.hero{background:linear-gradient(135deg,#26231d,var(--ink));}
+.kpi-card.hero::before{background:var(--turmeric);}
+.kpi-card.hero .kpi-label{color:#b7ac93;}
+.kpi-card.hero .kpi-value{color:#fff;}
+.kpi-card.profit .kpi-value{color:var(--sage);}
+.kpi-card.profit::before{background:var(--sage);}
+.kpi-card.profit.neg .kpi-value{color:var(--tomato);}
+.kpi-card.profit.neg::before{background:var(--tomato);}
+.empty-note{color:var(--ink-soft);font-size:13px;padding:14px 0;}
+.hint{font-size:12px;color:var(--ink-soft);margin-top:8px;}
+.controls-grid{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
+.controls-grid .field{width:180px;}
+.entries-header-row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--paper-line);}
+.entries-header-row h3{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.entries-header-row .inline-sort{width:170px;}
+.entries-header-row .inline-sort label{font-size:10px;margin-bottom:3px;}
+.entries-header-row .inline-sort select{padding:6px 7px;font-size:12px;}
+.entries-header-row .inline-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.entries-header-row .inline-search{width:200px;}
+.entries-header-row .inline-search label{font-size:10px;margin-bottom:3px;}
+.entries-header-row .inline-search input{padding:6px 7px;font-size:12px;}
+th.sortable-th{cursor:pointer;user-select:none;}
+th.sortable-th:hover{background:#3a362d;}
+th.sortable-th i{font-size:10px;margin-left:3px;opacity:.85;}
+th.sortable-th.active-sort{color:#fff;}
+.pagination-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:10px;}
+.pagination-row .page-size-select{padding:6px 8px;border:1px solid var(--paper-line);border-radius:5px;font-size:12px;}
+.pagination-row .btn{padding:6px 12px;font-size:12px;}
+
+/* ---- Mobile top bar / hamburger ---- */
+.mobile-topbar{display:none;}
+.menu-backdrop{display:none;}
+@media(max-width:820px){
+  .app{display:block;}
+  .mobile-topbar{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30;
+    background:var(--ink);color:#fff;padding:12px 16px;}
+  .mobile-topbar .brand-mini{font-family:Georgia,serif;font-size:17px;}
+  .mobile-topbar button{background:none;border:1px solid #55503f;color:#efe7d8;border-radius:6px;padding:6px 10px;font-size:18px;line-height:1;cursor:pointer;}
+  .sidebar{position:fixed;top:0;left:0;bottom:0;z-index:40;transform:translateX(-100%);transition:transform .2s ease;width:250px;}
+  .sidebar.open{transform:translateX(0);box-shadow:2px 0 18px rgba(0,0,0,.35);}
+  .menu-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:35;}
+  .main{padding:16px;}
+  .kpi-grid,.cards-row{gap:9px;}
+  .kpi-card,.card{min-width:130px;padding:11px 13px;}
+  .kpi-value{font-size:19px;}
+  .form-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));}
+  .controls-grid .field, .period-row .field{width:100%;flex:1 1 130px;}
+  table{font-size:12px;}
+  th,td{padding:6px 7px;}
+}
+
+/* ---- Print view ---- */
+@media print{
+  .sidebar,.mobile-topbar,.menu-backdrop,.section form,.controls-grid,.pagination-row,
+  .actions,th:last-child,td:last-child,#backupBanner,#toastHost,.shortcut-hint{display:none !important;}
+  .app{display:block;}
+  .main{padding:0;overflow:visible;}
+  body{background:#fff;}
+  .section{border:none;box-shadow:none;break-inside:avoid;}
+  table{font-size:11px;}
+}
+
+/* ---- Backup reminder banner ---- */
+.backup-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  background:var(--amber-bg);border:1px solid var(--turmeric);color:var(--turmeric-deep);border-radius:8px;
+  padding:10px 16px;margin-bottom:18px;font-size:13px;}
+.backup-banner.stale{background:var(--tomato-bg);border-color:var(--tomato);color:var(--tomato);}
+.backup-banner button{flex-shrink:0;}
+
+/* ---- Inline backup widget (dashboard, before period dates) ---- */
+.backup-mini{display:flex;align-items:center;gap:7px;background:linear-gradient(180deg,#f3ead7,#ecdfc2);
+  border:1px solid var(--turmeric);color:var(--turmeric-deep);border-radius:7px;padding:8px 10px;
+  font-size:11.5px;white-space:nowrap;height:32px;box-shadow:0 1px 2px rgba(0,0,0,.05);}
+.backup-mini.stale{background:linear-gradient(180deg,#fbe0dc,#f6cac4);border-color:var(--tomato);color:var(--tomato);}
+.backup-mini-icon{font-size:13px;line-height:1;}
+.backup-mini button{background:var(--ink);color:#f5d98a;border:none;border-radius:5px;padding:5px 10px;
+  font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;transition:transform .1s ease, background .15s ease;}
+.backup-mini button:hover{background:#000;transform:translateY(-1px);}
+
+/* ---- Undo toast ---- */
+#toastHost{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;align-items:center;}
+.toast{background:var(--ink);color:#efe7d8;padding:10px 14px;border-radius:8px;font-size:13px;display:flex;align-items:center;gap:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:toastIn .15s ease;}
+.toast button{background:none;border:1px solid #55503f;color:#f5d98a;border-radius:5px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600;}
+.toast button:hover{background:#2a2822;}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---- Validation ---- */
+.field.invalid input,.field.invalid select{outline:2px solid var(--tomato);outline-offset:1px;}
+.field .field-err{color:var(--tomato);font-size:11px;margin-top:3px;display:none;}
+.field.invalid .field-err{display:block;}
+.form-error-banner{background:var(--tomato-bg);color:var(--tomato);border:1px solid var(--tomato);border-radius:6px;padding:8px 12px;font-size:12.5px;margin-bottom:12px;display:none;}
+.form-error-banner.show{display:block;}
+
+/* ---- Keyboard shortcut hint ---- */
+.shortcut-hint{font-size:11.5px;color:var(--ink-soft);margin:-8px 0 16px 0;}
+.shortcut-hint kbd{background:#fff;border:1px solid var(--paper-line);border-radius:4px;padding:1px 6px;font-family:inherit;font-size:11px;box-shadow:0 1px 0 var(--paper-line);}
+
+/* ---- Comparison badges ---- */
+.cmp-badge{font-size:11.5px;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:20px;display:inline-block;vertical-align:middle;}
+.cmp-badge.up{background:var(--sage-bg);color:var(--sage);}
+.cmp-badge.down{background:var(--tomato-bg);color:var(--tomato);}
+.cmp-badge.flat{background:#eee;color:var(--ink-soft);}
+.kpi-card .kpi-sub{font-size:10.5px;color:var(--ink-soft);margin-top:4px;}
+
+/* ---- Empty state (first run) ---- */
+.getting-started{background:linear-gradient(160deg,#fff,var(--amber-bg));border:1px dashed var(--turmeric);border-radius:12px;padding:30px;text-align:center;margin-bottom:20px;box-shadow:0 2px 8px rgba(163,112,15,.08);}
+.getting-started h3{border:none;margin-bottom:6px;padding-bottom:0;}
+.getting-started .btn{margin:4px;}
+/* ---- Login screen ---- */
+.login-screen{position:fixed;inset:0;background:var(--paper-bg,#f7f3ea);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px;}
+.login-card{background:#fff;border:1px solid var(--paper-line);border-radius:14px;padding:32px 28px;width:100%;max-width:360px;box-shadow:0 8px 30px rgba(0,0,0,.08);text-align:center;}
+.login-card h1{font-size:20px;margin-bottom:4px;}
+.login-sub{font-size:13px;color:var(--ink-soft);margin-bottom:22px;}
+.login-card form{text-align:left;}
+.login-card .field{margin-bottom:14px;}
+.login-card .field label{display:block;font-size:12px;margin-bottom:4px;color:var(--ink-soft);}
+.login-card .field input{width:100%;padding:9px 10px;border:1px solid var(--paper-line);border-radius:7px;font-size:14px;}
+.login-error{background:#fdecea;color:#a3260f;border:1px solid #f3c3ba;border-radius:7px;padding:8px 10px;font-size:12.5px;margin-bottom:14px;}
+.login-loading{margin-top:16px;font-size:13px;color:var(--ink-soft);}
+.sync-status{font-size:10.5px;color:var(--ink-soft);text-align:center;margin-top:6px;min-height:14px;}
+</style>
+</head>
+<body>
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> Dar Al-Taste</h1>
+    <p class="login-sub">Sign in to your private ledger</p>
+    <form id="loginForm">
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" required autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
+      <div id="loginError" class="login-error" style="display:none;"></div>
+      <button type="submit" class="btn" id="loginSubmitBtn" style="width:100%;">Sign in</button>
+    </form>
+    <div id="loginLoading" class="login-loading" style="display:none;">Loading your data…</div>
+  </div>
+</div>
+<div class="mobile-topbar">
+  <span class="brand-mini"><i class="fa-solid fa-utensils"></i> Dar Al-Taste</span>
+  <button id="btnMobileMenu" aria-label="Open menu">&#9776;</button>
+</div>
+<div class="menu-backdrop" id="menuBackdrop"></div>
+<div class="app" id="appShell" style="display:none;">
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> Dar Al-Taste</h1>
+      <span>Private ledger</span>
+    </div>
+    <div id="nav"></div>
+    <div class="sidebar-footer">
+      <button id="btnPrint"><i class="fa-solid fa-print"></i> Print / save PDF</button>
+      <button id="btnDownloadExcel"><i class="fa-solid fa-chart-line"></i> Download report (.xls)</button>
+      <button id="btnExport"><i class="fa-solid fa-download"></i> Export backup (.json)</button>
+      <button id="btnImport"><i class="fa-solid fa-upload"></i> Import backup (.json)</button>
+      <input type="file" id="fileImport" accept=".json" style="display:none;">
+      <button id="btnSignOut"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</button>
+      <div id="syncStatus" class="sync-status"></div>
+    </div>
+  </div>
+  <div class="main" id="main"></div>
+</div>
+<div id="toastHost"></div>
+
+<script>
+/* =========================================================
+   STATE
+   ========================================================= */
+const STORAGE_KEY = 'darAlTasteTracker_v1';
+
+/* =========================================================
+   SUPABASE CONFIG
+   Replace these two values with your own project's URL and
+   anon (public) key — find them in Supabase: Project Settings > API.
+   ========================================================= */
+const SUPABASE_URL = 'https://wllmqzmpgjyktzjlldxt.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsbG1xem1wZ2p5a3R6amxsZHh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTc3MTgsImV4cCI6MjEwNDI3MzcxOH0.WT1pyN-B4H0NGIgWjYcC4KBQSdV-yIEIcMOQDeXFcug';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let saveDebounceTimer = null;
+let cloudSaveInFlight = false;
+let pendingCloudSave = false;
+
+function setSyncStatus(msg){
+  const el = document.getElementById('syncStatus');
+  if(el) el.textContent = msg;
+}
+
+async function pushStateToCloud(){
+  if(!currentUser) return;
+  if(cloudSaveInFlight){ pendingCloudSave = true; return; }
+  cloudSaveInFlight = true;
+  setSyncStatus('Saving…');
+  try{
+    const { error } = await supabaseClient
+      .from('app_state')
+      .upsert({ user_id: currentUser.id, data: state, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if(error){ setSyncStatus('Save failed — retrying'); console.error(error); }
+    else setSyncStatus('Saved to cloud');
+  }catch(e){
+    setSyncStatus('Save failed — check connection');
+    console.error(e);
+  }
+  cloudSaveInFlight = false;
+  if(pendingCloudSave){ pendingCloudSave = false; pushStateToCloud(); }
+}
+
+function queueCloudSave(){
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(pushStateToCloud, 700);
+}
+
+async function fetchStateFromCloud(){
+  const { data, error } = await supabaseClient
+    .from('app_state')
+    .select('data')
+    .eq('user_id', currentUser.id)
+    .maybeSingle();
+  if(error){ console.error(error); return null; }
+  return data ? data.data : null;
+}
+
+async function ensureCloudRowExists(initialState){
+  const { error } = await supabaseClient
+    .from('app_state')
+    .upsert({ user_id: currentUser.id, data: initialState, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if(error) console.error(error);
+}
+
+function defaultState(){
+  return {
+  "menuItems": [
+    {
+      "id": "npcpkbt7",
+      "name": "MTN MANDI",
+      "price": 16,
+      "quantity": 1,
+      "unit": "OZ",
+      "unitValue": 34,
+      "active": "Y",
+      "notes": "",
+      "cost": 8
+    },
+    {
+      "id": "6yzupo63",
+      "name": "S CKN 555",
+      "price": 8,
+      "quantity": 1,
+      "unit": "OZ",
+      "unitValue": 24,
+      "active": "Y",
+      "notes": "",
+      "cost": 4.5
+    },
+    {
+      "id": "klcpi39n",
+      "name": "Hakka + CKN 555",
+      "price": 16,
+      "quantity": 1,
+      "unit": "Combo",
+      "unitValue": 1,
+      "active": "Y",
+      "notes": "10oz CHK",
+      "cost": 7
+    },
+    {
+      "id": "i0xoq857",
+      "name": "S DGRN CKN",
+      "price": 8,
+      "quantity": 1,
+      "unit": "OZ",
+      "unitValue": 24,
+      "active": "Y",
+      "notes": "",
+      "cost": 4.5
+    },
+    {
+      "id": "fgdsige1",
+      "name": "Hakka + DRN CKN",
+      "price": 16,
+      "quantity": 1,
+      "unit": "Combo",
+      "unitValue": 1,
+      "active": "Y",
+      "notes": "10oz CHK",
+      "cost": 7
+    },
+    {
+      "id": "uqykvtdk",
+      "name": "PRTA + CKN 65",
+      "price": 13,
+      "quantity": 1,
+      "unit": "Combo",
+      "unitValue": 1,
+      "active": "Y",
+      "notes": "24oz + 3 Paratha",
+      "cost": 6
+    },
+    {
+      "id": "3mndx4uq",
+      "name": "CKN MANDI",
+      "price": 15,
+      "quantity": 1,
+      "unit": "OZ",
+      "unitValue": 34,
+      "active": "Y",
+      "notes": "",
+      "cost": 7
+    },
+    {
+      "id": "gwqzsap5",
+      "name": "MRG + NAAN",
+      "price": 17,
+      "quantity": 1,
+      "unit": "Combo",
+      "unitValue": 1,
+      "active": "Y",
+      "notes": "33oz MRG + 2 HM NAAN",
+      "cost": 8.5
+    },
+    {
+      "id": "z1m8xd7g",
+      "name": "HM 4K Naan",
+      "price": 2,
+      "quantity": 1,
+      "unit": "Pcs",
+      "unitValue": 1,
+      "active": "Y",
+      "notes": "",
+      "cost": 0.7
+    }
+  ],
+  "dailySales": [
+    {
+      "id": "j1d2kwga",
+      "date": "2026-08-29",
+      "orderId": "ORD-1001",
+      "item": "MTN MANDI",
+      "qty": 1,
+      "price": 16,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Pickup",
+      "compYN": "Yes",
+      "compItem": "Egg Bread Roll (2pcs)",
+      "reason": "Promotion",
+      "payment": "Zelle",
+      "tip": 1,
+      "customerName": "Misbah Iman",
+      "notes": ""
+    },
+    {
+      "id": "6mbz42ny",
+      "date": "2026-08-29",
+      "orderId": "ORD-1001",
+      "item": "S CKN 555",
+      "qty": 1,
+      "price": 8,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Pickup",
+      "compYN": "No",
+      "compItem": "",
+      "reason": "",
+      "payment": "Zelle",
+      "tip": 0,
+      "customerName": "Misbah Iman",
+      "notes": ""
+    },
+    {
+      "id": "653atn3z",
+      "date": "2026-08-29",
+      "orderId": "ORD-1002",
+      "item": "MTN MANDI",
+      "qty": 1,
+      "price": 16,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Delivery",
+      "compYN": "Yes",
+      "compItem": "Egg Bread Roll (2pcs)",
+      "reason": "Promotion",
+      "payment": "Zelle",
+      "tip": 0,
+      "customerName": "Seema - BLK ACURA",
+      "notes": ""
+    },
+    {
+      "id": "orckxqv5",
+      "date": "2026-08-30",
+      "orderId": "ORD-1003",
+      "item": "Hakka + CKN 555",
+      "qty": 1,
+      "price": 16,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Delivery",
+      "compYN": "No",
+      "compItem": "",
+      "reason": "",
+      "payment": "Cash",
+      "tip": 0,
+      "customerName": "Sameera Ali",
+      "notes": ""
+    },
+    {
+      "id": "s35ch4fs",
+      "date": "2026-08-30",
+      "orderId": "ORD-1003",
+      "item": "S DGRN CKN",
+      "qty": 1,
+      "price": 8,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Delivery",
+      "compYN": "No",
+      "compItem": "",
+      "reason": "",
+      "payment": "Cash",
+      "tip": 0,
+      "customerName": "Sameera Ali",
+      "notes": ""
+    },
+    {
+      "id": "8iqrmfof",
+      "date": "2026-08-30",
+      "orderId": "ORD-1004",
+      "item": "Hakka + DRN CKN",
+      "qty": 1,
+      "price": 16,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Pickup",
+      "compYN": "No",
+      "compItem": "",
+      "reason": "",
+      "payment": "Cash",
+      "tip": 0,
+      "customerName": "Rehan Bhai",
+      "notes": ""
+    },
+    {
+      "id": "umigd4lq",
+      "date": "2026-08-30",
+      "orderId": "ORD-1005",
+      "item": "Hakka + DRN CKN",
+      "qty": 2,
+      "price": 16,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 2,
+      "orderType": "Pickup",
+      "compYN": "No",
+      "compItem": "",
+      "reason": "",
+      "payment": "Cash",
+      "tip": 0,
+      "customerName": "Asiya",
+      "notes": ""
+    },
+    {
+      "id": "ir66i88n",
+      "date": "2026-09-04",
+      "orderId": "ORD-1006",
+      "item": "CKN MANDI",
+      "qty": 1,
+      "price": 15,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Pickup",
+      "compYN": "Yes",
+      "compItem": "Egg Bread Roll (2pcs)",
+      "reason": "Promotion",
+      "payment": "Cash",
+      "tip": 0,
+      "customerName": "Anum Awais",
+      "notes": ""
+    },
+    {
+      "id": "nywgmo8p",
+      "date": "2026-09-04",
+      "orderId": "ORD-1007",
+      "item": "CKN MANDI",
+      "qty": 2,
+      "price": 15,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Pickup",
+      "compYN": "Yes",
+      "compItem": "Egg Bread Roll (2pcs)",
+      "reason": "Regular",
+      "payment": "Cash",
+      "tip": 0,
+      "customerName": "Rehan Bhai",
+      "notes": ""
+    },
+    {
+      "id": "v02bebgx",
+      "date": "2026-09-05",
+      "orderId": "ORD-1008",
+      "item": "MRG + NAAN",
+      "qty": 1,
+      "price": 17,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Pickup",
+      "compYN": "No",
+      "compItem": "",
+      "reason": "",
+      "payment": "Zelle",
+      "tip": 0,
+      "customerName": "Misbah Iman",
+      "notes": ""
+    },
+    {
+      "id": "vxlr84s6",
+      "date": "2026-09-05",
+      "orderId": "ORD-1008",
+      "item": "HM 4K Naan",
+      "qty": 2,
+      "price": 2,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 1,
+      "orderType": "Pickup",
+      "compYN": "No",
+      "compItem": "",
+      "reason": "",
+      "payment": "Zelle",
+      "tip": 0,
+      "customerName": "Misbah Iman",
+      "notes": ""
+    },
+    {
+      "id": "2gk3e7al",
+      "date": "2026-09-05",
+      "orderId": "ORD-1009",
+      "item": "MRG + NAAN",
+      "qty": 2,
+      "price": 17,
+      "deliveryFee": 0,
+      "discountType": "Amount",
+      "discountValue": 0,
+      "orderType": "Pickup",
+      "compYN": "Yes",
+      "compItem": "Egg Bread Roll (4pcs)",
+      "reason": "Mistake",
+      "payment": "Cash",
+      "tip": 0,
+      "customerName": "Shabaan",
+      "notes": ""
+    }
+  ],
+  "expenses": [
+    {
+      "id": "wvehhpvq",
+      "date": "2026-08-28",
+      "category": "Ingredients - Proteins",
+      "description": "1 LB BNL CK BREAST",
+      "vendor": "Halal Food Market",
+      "payment": "Card",
+      "amount": 3.35,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "w02ephbc",
+      "date": "2026-08-28",
+      "category": "Ingredients - Proteins",
+      "description": "3 Lamb Shank + 1LB Lamb",
+      "vendor": "Halal Food Market",
+      "payment": "Card",
+      "amount": 29.76,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "decm7h6e",
+      "date": "2026-08-28",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "description": "White Bread",
+      "vendor": "Walmart",
+      "payment": "Card",
+      "amount": 2,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "z769mzw0",
+      "date": "2026-08-28",
+      "category": "Packaging & Disposables",
+      "description": "5PK SM + 30PK BIG",
+      "vendor": "Walmart",
+      "payment": "Card",
+      "amount": 21,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "tfuz603t",
+      "date": "2026-08-29",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "description": "40LB Basmathi Rice",
+      "vendor": "Resto Depo",
+      "payment": "Card",
+      "amount": 47.8,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "pmx1r2id",
+      "date": "2026-08-29",
+      "category": "Packaging & Disposables",
+      "description": "LID PL 1.5-2.0 125CT",
+      "vendor": "Resto Depo",
+      "payment": "Card",
+      "amount": 3.719,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "pde0vi3y",
+      "date": "2026-08-29",
+      "category": "Packaging & Disposables",
+      "description": "CUP SFL BLK 2Z 250CT",
+      "vendor": "Resto Depo",
+      "payment": "Card",
+      "amount": 2.4255,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "g94wqbuf",
+      "date": "2026-08-30",
+      "category": "Ingredients - Proteins",
+      "description": "2.7 LB BNL CK BREAST",
+      "vendor": "Baladna",
+      "payment": "Card",
+      "amount": 10.93,
+      "isDamage": false,
+      "notes": "1LB $3.99"
+    },
+    {
+      "id": "zgcg0rhd",
+      "date": "2026-08-30",
+      "category": "Ingredients - Produce",
+      "description": "Capsicum, Ginger, Chilli",
+      "vendor": "Desi Plaza",
+      "payment": "Card",
+      "amount": 8.94,
+      "isDamage": false,
+      "notes": "2 CPS/0.63 Ginger/0.28 CHILLI"
+    },
+    {
+      "id": "e8us3khq",
+      "date": "2026-08-30",
+      "category": "Ingredients - Proteins",
+      "description": "CK THIGH WS",
+      "vendor": "Halal Food Market",
+      "payment": "Card",
+      "amount": 8,
+      "isDamage": false,
+      "notes": "8LB"
+    },
+    {
+      "id": "fqv3jkrk",
+      "date": "2026-08-30",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "description": "Noodles",
+      "vendor": "Desi Plaza",
+      "payment": "Card",
+      "amount": 5,
+      "isDamage": false,
+      "notes": "1 pack"
+    },
+    {
+      "id": "t83ghjsc",
+      "date": "2026-09-02",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "description": "Paratha",
+      "vendor": "Costco",
+      "payment": "Card",
+      "amount": 10,
+      "isDamage": false,
+      "notes": "20 Pieces"
+    },
+    {
+      "id": "5w4d00bg",
+      "date": "2026-09-02",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "description": "Lemon",
+      "vendor": "Costco",
+      "payment": "Card",
+      "amount": 9,
+      "isDamage": false,
+      "notes": "2 LTRS Bottles"
+    },
+    {
+      "id": "c57272m6",
+      "date": "2026-09-02",
+      "category": "Ingredients - Produce",
+      "description": "Onions",
+      "vendor": "Costco",
+      "payment": "Card",
+      "amount": 5.07,
+      "isDamage": false,
+      "notes": "5 LB"
+    },
+    {
+      "id": "pkdbt8t3",
+      "date": "2026-09-02",
+      "category": "Ingredients - Proteins",
+      "description": "2LB CHK BL + Chili Sause",
+      "vendor": "Halal Food Market",
+      "payment": "Card",
+      "amount": 14.97,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "z1vz3q22",
+      "date": "2026-09-04",
+      "category": "Ingredients - Produce",
+      "description": "Greens + Pantry",
+      "vendor": "Desi Plaza",
+      "payment": "Card",
+      "amount": 28.11,
+      "isDamage": false,
+      "notes": ""
+    },
+    {
+      "id": "1nvu6q3u",
+      "date": "2026-09-05",
+      "category": "Ingredients - Proteins",
+      "description": "Lamb Shoulder",
+      "vendor": "Halal Food Market",
+      "payment": "Card",
+      "amount": 34.14,
+      "isDamage": false,
+      "notes": "3.57lb Lamb $8.99"
+    },
+    {
+      "id": "5eaafplt",
+      "date": "2026-09-05",
+      "category": "Equipment & Maintenance",
+      "description": "Baking Tray",
+      "vendor": "Walmart",
+      "payment": "Others",
+      "amount": 14,
+      "isDamage": true,
+      "notes": "Big Baking Tray BRKN"
+    },
+    {
+      "id": "y2m336wk",
+      "date": "2026-09-05",
+      "category": "Miscellaneous",
+      "description": "6 Naan",
+      "vendor": "Home",
+      "payment": "Others",
+      "amount": 3,
+      "isDamage": true,
+      "notes": "Considering each $0.5"
+    }
+  ],
+  "inventory": [
+    {
+      "id": "5vgiwu90",
+      "name": "Chicken Thigh BL",
+      "category": "Ingredients - Proteins",
+      "unit": "LB",
+      "currentStock": 0,
+      "reorderLevel": 1,
+      "fullStock": 1.5,
+      "lastPurchaseDate": "1999-01-01",
+      "lastPurchaseCost": 0,
+      "notes": ""
+    },
+    {
+      "id": "uydqjeqt",
+      "name": "Chicken Thigh WB",
+      "category": "Ingredients - Proteins",
+      "unit": "LB",
+      "currentStock": 8,
+      "reorderLevel": 2,
+      "fullStock": 5,
+      "lastPurchaseDate": "2026-08-30",
+      "lastPurchaseCost": 8,
+      "notes": "1 LB - $1 (PUR - 10 LB)"
+    },
+    {
+      "id": "rovv8pxl",
+      "name": "Chicken Breast BL",
+      "category": "Ingredients - Proteins",
+      "unit": "LB",
+      "currentStock": 3.5,
+      "reorderLevel": 2,
+      "fullStock": 5,
+      "lastPurchaseDate": "2026-09-02",
+      "lastPurchaseCost": 10,
+      "notes": "2LB BL CKN"
+    },
+    {
+      "id": "wey9u18z",
+      "name": "Lamb Shank",
+      "category": "Ingredients - Proteins",
+      "unit": "LB",
+      "currentStock": 1,
+      "reorderLevel": 0,
+      "fullStock": 0,
+      "lastPurchaseDate": "2026-08-28",
+      "lastPurchaseCost": 29.76,
+      "notes": "3 Shank + 1LB"
+    },
+    {
+      "id": "u8be9he3",
+      "name": "Lamb Qubes",
+      "category": "Ingredients - Proteins",
+      "unit": "LB",
+      "currentStock": 1,
+      "reorderLevel": 2,
+      "fullStock": 5,
+      "lastPurchaseDate": "2026-08-28",
+      "lastPurchaseCost": 29.76,
+      "notes": "4 Shank + 1LB"
+    },
+    {
+      "id": "rvg9ihdg",
+      "name": "White Bread",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "unit": "CT",
+      "currentStock": 15,
+      "reorderLevel": 4,
+      "fullStock": 20,
+      "lastPurchaseDate": "2026-08-28",
+      "lastPurchaseCost": 2,
+      "notes": "1 Pack"
+    },
+    {
+      "id": "silpvfyd",
+      "name": "SM Condiment Lids",
+      "category": "Packaging & Disposables",
+      "unit": "CT",
+      "currentStock": 124,
+      "reorderLevel": 10,
+      "fullStock": 125,
+      "lastPurchaseDate": "2026-08-28",
+      "lastPurchaseCost": 2,
+      "notes": "LID PL 1.5-2.0 125CT"
+    },
+    {
+      "id": "c3jyvu8a",
+      "name": "SM Condiment Cups",
+      "category": "Packaging & Disposables",
+      "unit": "CT",
+      "currentStock": 249,
+      "reorderLevel": 10,
+      "fullStock": 250,
+      "lastPurchaseDate": "2026-08-28",
+      "lastPurchaseCost": 2,
+      "notes": "CUP SFL BLK 2Z 250CT"
+    },
+    {
+      "id": "d1pnhczv",
+      "name": "Basmati Rice",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "unit": "LB",
+      "currentStock": 39,
+      "reorderLevel": 10,
+      "fullStock": 40,
+      "lastPurchaseDate": "2026-08-29",
+      "lastPurchaseCost": 47.8,
+      "notes": "40 LB Basmati Long Grain"
+    },
+    {
+      "id": "c005ocne",
+      "name": "Noodles",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "unit": "PACK",
+      "currentStock": 6,
+      "reorderLevel": 4,
+      "fullStock": 8,
+      "lastPurchaseDate": "2026-08-30",
+      "lastPurchaseCost": 5,
+      "notes": "1 PACK"
+    },
+    {
+      "id": "qn97irv7",
+      "name": "Lemon",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "unit": "LTR",
+      "currentStock": 2,
+      "reorderLevel": 0.5,
+      "fullStock": 2,
+      "lastPurchaseDate": "2026-09-02",
+      "lastPurchaseCost": 10,
+      "notes": "2 LTRS"
+    },
+    {
+      "id": "p79k4o5c",
+      "name": "Onions",
+      "category": "Ingredients - Produce",
+      "unit": "LB",
+      "currentStock": 5,
+      "reorderLevel": 1,
+      "fullStock": 5,
+      "lastPurchaseDate": "2026-09-02",
+      "lastPurchaseCost": 5.07,
+      "notes": "5 LB"
+    },
+    {
+      "id": "sd2955bu",
+      "name": "Chili Sauce",
+      "category": "Ingredients - Grains, Spices & Pantry",
+      "unit": "LTR",
+      "currentStock": 1,
+      "reorderLevel": 0.25,
+      "fullStock": 1,
+      "lastPurchaseDate": "2026-09-02",
+      "lastPurchaseCost": 4.97,
+      "notes": ""
+    }
+  ],
+  "complimentary": [
+    {
+      "id": "nyjwbbqw",
+      "name": "Egg Bread Roll (2pcs)",
+      "price": 2,
+      "cost": 0.75,
+      "active": "Y",
+      "notes": "Given with first order"
+    },
+    {
+      "id": "vhmryyjf",
+      "name": "Egg Bread Roll (4pcs)",
+      "price": 4,
+      "cost": 1.5,
+      "active": "Y",
+      "notes": "Correction"
+    }
+  ],
+  "categories": {
+    "category": [
+      "Ingredients - Proteins",
+      "Ingredients - Produce",
+      "Ingredients - Dairy & Eggs",
+      "Ingredients - Grains, Spices & Pantry",
+      "Packaging & Disposables",
+      "Delivery / Platform Fees",
+      "Utilities",
+      "Cleaning & Kitchen Supplies",
+      "Equipment & Maintenance",
+      "Transportation / Fuel",
+      "Marketing",
+      "Miscellaneous"
+    ],
+    "paymentMethod": [
+      "Cash",
+      "Card",
+      "Zelle",
+      "Venmo",
+      "Others"
+    ],
+    "orderType": [
+      "Delivery",
+      "Pickup",
+      "Catering"
+    ],
+    "reason": [
+      "Regular",
+      "Promotion",
+      "Mistake",
+      "Correction",
+      "Other"
+    ],
+    "unit": [
+      "Pcs",
+      "Pack",
+      "KG",
+      "G",
+      "LB",
+      "OZ",
+      "FL OZ",
+      "ML",
+      "L",
+      "Dozen",
+      "Combo"
+    ],
+    "vendor": [
+      "Halal Food Market",
+      "Walmart",
+      "Resto Depo",
+      "Baladna",
+      "Desi Plaza",
+      "Costco",
+      "Home"
+    ]
+  },
+  "dashboard": {
+    "start": "2026-08-09",
+    "end": "2026-10-10"
+  }
+};
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function mkSale(o){
+  return Object.assign({
+    id: uid(), date:'', orderId:'', item:'', qty:1, price:0, deliveryFee:0,
+    discountType:'Amount', discountValue:0,
+    orderType:'', compYN:'No', compItem:'', reason:'', payment:'', tip:0, customerName:'', notes:''
+  }, o);
+}
+function mkExpense(date,category,description,vendor,payment,amount,notes){
+  return {id:uid(),date,category,description,vendor,payment,amount,notes};
+}
+function mkInv(name,category,unit,currentStock,reorderLevel,fullStock,lastPurchaseDate,lastPurchaseCost,notes){
+  return {id:uid(),name,category,unit,currentStock,reorderLevel,fullStock,lastPurchaseDate,lastPurchaseCost,notes};
+}
+function mkComp(name,price,cost,active,notes){
+  return {id:uid(),name,price,cost,active,notes};
+}
+function mkMenuItem(name,price,active,notes,quantity,unit,unitValue,cost){
+  return {id:uid(),name,price,active,notes,quantity: quantity!==undefined?quantity:1, unit: unit||'Pcs', unitValue: unitValue!==undefined?unitValue:0, cost: cost!==undefined?cost:0};
+}
+
+let state = defaultState();
+function load(){
+  let saved = null;
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) saved = JSON.parse(raw);
+  }catch(e){}
+  const def = defaultState();
+  if(!saved) return def;
+  return migrateState(saved, def);
+}
+
+/* Repairs older saved data that predates newer fields/sheets
+   (Menu Items, Complimentary, Inventory, Discounts, Delivery Fee, etc.)
+   so the app never crashes on missing keys — it just fills in sane defaults
+   while keeping every bit of your existing data intact. */
+function migrateState(saved, def){
+  const merged = Object.assign({}, def, saved);
+
+  // Any top-level array that's missing or not actually an array falls back to defaults
+  ['menuItems','dailySales','expenses','inventory','complimentary'].forEach(key=>{
+    if(!Array.isArray(merged[key])) merged[key] = def[key];
+  });
+
+  // Nested objects: keep old values, fill in any newly-added keys
+  merged.categories = Object.assign({}, def.categories, saved.categories||{});
+  merged.dashboard = Object.assign({}, def.dashboard, saved.dashboard||{});
+
+  // Per-row repair: each row keeps its existing values, missing fields get defaults.
+  // One-time migration: earlier versions stored the customer's name inside "notes"
+  // (the field was labelled "Customer / notes"). If a row predates the separate
+  // Customer Name field, move that text over so existing customer history isn't lost.
+  merged.dailySales = merged.dailySales.map(r => {
+    if(r.customerName===undefined && r.notes){
+      r = Object.assign({}, r, { customerName: r.notes, notes: '' });
+    }
+    return Object.assign({
+      id: uid(), date:'', orderId:'', item:'', qty:1, price:0, deliveryFee:0,
+      discountType:'Amount', discountValue:0,
+      orderType:'', compYN:'No', compItem:'', reason:'', payment:'', tip:0, customerName:'', notes:''
+    }, r);
+  });
+
+  merged.menuItems = merged.menuItems.map(r => Object.assign(
+    {id:uid(), name:'', price:0, active:'Y', notes:'', quantity:1, unit:'Pcs', unitValue:0, cost:0}, r));
+
+  merged.complimentary = merged.complimentary.map(r => Object.assign(
+    {id:uid(), name:'', price:0, cost:0, active:'Y', notes:''}, r));
+
+  merged.inventory = merged.inventory.map(r => Object.assign(
+    {id:uid(), name:'', category:'', unit:'', currentStock:0, reorderLevel:0,
+     fullStock:0, lastPurchaseDate:'', lastPurchaseCost:0, notes:''}, r));
+
+  merged.expenses = merged.expenses.map(r => Object.assign(
+    {id:uid(), date:'', category:'', description:'', vendor:'', payment:'', amount:0, isDamage:false, notes:''}, r));
+
+  // Persist the repaired shape right away so future loads skip migration
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }catch(e){}
+
+  return merged;
+}
+
+function save(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  queueCloudSave();
+}
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+function dayAbbrev(dateStr){
+  if(!dateStr) return '';
+  const d = new Date(dateStr+'T00:00:00');
+  if(isNaN(d)) return '';
+  return ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()];
+}
+function fmtMoney(n){
+  n = Number(n)||0;
+  return '$' + n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function inRange(dateStr, start, end){
+  if(!dateStr) return false;
+  return (!start || dateStr >= start) && (!end || dateStr <= end);
+}
+function findComp(name){
+  return state.complimentary.find(c => c.name === name);
+}
+function itemTotal(row){
+  return (Number(row.qty)||0) * (Number(row.price)||0);
+}
+function discountAmount(row){
+  const val = Number(row.discountValue)||0;
+  if(val<=0) return 0;
+  if(row.discountType==='Percent') return itemTotal(row) * val/100;
+  return val;
+}
+function netItemTotal(row){
+  return Math.max(0, itemTotal(row) - discountAmount(row));
+}
+function rowRevenue(row){
+  return netItemTotal(row) + (Number(row.deliveryFee)||0);
+}
+function compCost(row){
+  if(row.compYN !== 'Yes') return 0;
+  const c = findComp(row.compItem);
+  return c ? Number(c.cost)||0 : 0;
+}
+function invStatus(inv){
+  const cur = Number(inv.currentStock), full = Number(inv.fullStock), reorder = Number(inv.reorderLevel);
+  if(!full) return {label:'', pct:0};
+  const pct = cur/full;
+  let label;
+  if(cur <= reorder) label = 'LOW';
+  else if(pct >= 1) label = 'FULL';
+  else label = 'MEDIUM';
+  return {label, pct};
+}
+function getWeekStart(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const day = d.getDay();
+  const diff = (day===0 ? -6 : 1-day);
+  d.setDate(d.getDate()+diff);
+  return d.toISOString().slice(0,10);
+}
+
+/* =========================================================
+   NAV / ROUTING
+   ========================================================= */
+const TABS = [
+  {key:'dashboard', label:'Dashboard', icon:'<i class="fa-solid fa-chart-line"></i>'},
+  {key:'sales', label:'Daily Sales', icon:'<i class="fa-solid fa-receipt"></i>'},
+  {key:'expenses', label:'Expenses', icon:'<i class="fa-solid fa-money-bill-wave"></i>'},
+  {key:'inventory', label:'Inventory', icon:'<i class="fa-solid fa-box"></i>'},
+  {key:'complimentary', label:'Complimentary', icon:'<i class="fa-solid fa-gift"></i>'},
+  {key:'menu', label:'Menu Items', icon:'<i class="fa-solid fa-bowl-food"></i>'},
+  {key:'categories', label:'Categories', icon:'<i class="fa-solid fa-gear"></i>'},
+];
+let activeTab = 'dashboard';
+let editingId = null;
+let salesTrendGranularity = 'weekly';
+
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  TABS.forEach(t=>{
+    const el = document.createElement('div');
+    el.className = 'nav-item' + (t.key===activeTab ? ' active' : '');
+    el.innerHTML = `<span class="nav-icon">${t.icon}</span>${t.label}`;
+    el.onclick = ()=>{ activeTab = t.key; editingId = null; closeMobileMenu(); renderAll(); };
+    nav.appendChild(el);
+  });
+}
+
+/* ---- Mobile hamburger menu ---- */
+function closeMobileMenu(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('menuBackdrop').classList.remove('open');
+}
+document.getElementById('btnMobileMenu').onclick = ()=>{
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('menuBackdrop').classList.add('open');
+};
+document.getElementById('menuBackdrop').onclick = closeMobileMenu;
+
+/* ---- Print / save as PDF ---- */
+document.getElementById('btnPrint').onclick = ()=> window.print();
+
+function renderAll(){
+  renderNav();
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  if(activeTab==='dashboard') renderDashboard(main);
+  if(activeTab==='sales') renderSales(main);
+  if(activeTab==='expenses') renderExpenses(main);
+  if(activeTab==='inventory') renderInventory(main);
+  if(activeTab==='complimentary') renderComplimentary(main);
+  if(activeTab==='menu') renderMenu(main);
+  if(activeTab==='categories') renderCategories(main);
+  renderBackupBanner();
+}
+
+/* =========================================================
+   TABLE FILTER + SORT + PERIOD + PAGINATION FRAMEWORK
+   ========================================================= */
+const tableState = {
+  sales: {page:1, pageSize:10, filter:'', sortField:'date', sortDir:'desc', periodFilter:'all', specificDate:''},
+  expenses: {page:1, pageSize:10, filter:'', sortField:'date', sortDir:'desc', periodFilter:'all', specificDate:''},
+  inventory: {page:1, pageSize:10, filter:'', sortDir:'asc', periodFilter:'all', specificDate:''},
+  complimentary: {page:1, pageSize:10, filter:'', sortDir:'asc'},
+  menu: {page:1, pageSize:10, filter:'', sortDir:'asc'},
+};
+function filterRows(rows, filterText, fields){
+  if(!filterText) return rows;
+  const q = filterText.toLowerCase();
+  return rows.filter(r => fields.some(f => String(r[f]||'').toLowerCase().includes(q)));
+}
+function sortByField(rows, field, dir){
+  return rows.slice().sort((a,b)=>{
+    const av = (a[field]||'').toString();
+    const bv = (b[field]||'').toString();
+    if(av<bv) return dir==='asc' ? -1 : 1;
+    if(av>bv) return dir==='asc' ? 1 : -1;
+    return 0;
+  });
+}
+function inPeriodFilter(dateStr, periodFilter, specificDate){
+  if(!periodFilter || periodFilter==='all') return true;
+  if(!dateStr) return false;
+  const d = new Date(dateStr+'T00:00:00');
+  const now = new Date();
+  if(periodFilter==='week'){
+    const ws = new Date(getWeekStart(now.toISOString().slice(0,10))+'T00:00:00');
+    const we = new Date(ws); we.setDate(we.getDate()+6);
+    return d>=ws && d<=we;
+  }
+  if(periodFilter==='month'){
+    return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+  }
+  if(periodFilter==='year'){
+    return d.getFullYear()===now.getFullYear();
+  }
+  if(periodFilter==='specific'){
+    return dateStr === specificDate;
+  }
+  return true;
+}
+function applyPeriodFilter(rows, dateField, periodFilter, specificDate){
+  if(!periodFilter || periodFilter==='all') return rows;
+  return rows.filter(r=> inPeriodFilter(r[dateField], periodFilter, specificDate));
+}
+function paginateRows(rows, key){
+  const st = tableState[key];
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total/st.pageSize));
+  if(st.page>totalPages) st.page = totalPages;
+  if(st.page<1) st.page = 1;
+  const startIdx = (st.page-1)*st.pageSize;
+  return { pageRows: rows.slice(startIdx,startIdx+st.pageSize), totalPages, total, page: st.page };
+}
+function controlsRowHtml(key, placeholder, sortOptions, hasPeriod){
+  const st = tableState[key];
+  let html = `<div class="controls-grid">`;
+  html += `<div class="field"><label>Search</label><input type="text" class="filter-input" data-key="${key}" placeholder="${placeholder}" value="${st.filter}"></div>`;
+  if(sortOptions){
+    html += `<div class="field"><label>Sort</label><select class="sort-select" data-key="${key}">${sortOptions.map(o=>`<option value="${o.value}" ${o.value===st.sortDir?'selected':''}>${o.label}</option>`).join('')}</select></div>`;
+  }
+  if(hasPeriod){
+    html += `<div class="field"><label>Period</label><select class="period-select" data-key="${key}">
+      <option value="all" ${st.periodFilter==='all'?'selected':''}>All time</option>
+      <option value="week" ${st.periodFilter==='week'?'selected':''}>This week</option>
+      <option value="month" ${st.periodFilter==='month'?'selected':''}>This month</option>
+      <option value="year" ${st.periodFilter==='year'?'selected':''}>This year</option>
+      <option value="specific" ${st.periodFilter==='specific'?'selected':''}>Specific date</option>
+    </select></div>`;
+    if(st.periodFilter==='specific'){
+      html += `<div class="field"><label>Date</label><input type="date" class="specific-date-input" data-key="${key}" value="${st.specificDate}"></div>`;
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+function entriesHeaderHtml(key, placeholder, sortOptions){
+  const st = tableState[key];
+  let html = `<div class="entries-header-row">
+    <h3>Entries</h3>
+    <div class="inline-controls">
+      <div class="field inline-search"><label>Search</label><input type="text" class="filter-input" data-key="${key}" placeholder="${placeholder}" value="${st.filter}"></div>
+      <div class="field inline-sort"><label>Period</label><select class="period-select" data-key="${key}">
+        <option value="all" ${st.periodFilter==='all'?'selected':''}>All time</option>
+        <option value="week" ${st.periodFilter==='week'?'selected':''}>This week</option>
+        <option value="month" ${st.periodFilter==='month'?'selected':''}>This month</option>
+        <option value="year" ${st.periodFilter==='year'?'selected':''}>This year</option>
+        <option value="specific" ${st.periodFilter==='specific'?'selected':''}>Specific date</option>
+      </select></div>`;
+  if(st.periodFilter==='specific'){
+    html += `<div class="field inline-sort"><label>Date</label><input type="date" class="specific-date-input" data-key="${key}" value="${st.specificDate}"></div>`;
+  }
+  html += `<div class="field inline-sort"><label>Sort</label><select class="sort-select" data-key="${key}">${sortOptions.map(o=>`<option value="${o.value}" ${o.value===st.sortDir?'selected':''}>${o.label}</option>`).join('')}</select></div>
+    </div>
+  </div>`;
+  return html;
+}
+function itemsHeaderHtml(key, placeholder, sortOptions){
+  const st = tableState[key];
+  return `<div class="entries-header-row">
+    <h3>Items</h3>
+    <div class="inline-controls">
+      <div class="field inline-search"><label>Search</label><input type="text" class="filter-input" data-key="${key}" placeholder="${placeholder}" value="${st.filter}"></div>
+      <div class="field inline-sort"><label>Sort</label><select class="sort-select" data-key="${key}">${sortOptions.map(o=>`<option value="${o.value}" ${o.value===st.sortDir?'selected':''}>${o.label}</option>`).join('')}</select></div>
+    </div>
+  </div>`;
+}
+function sortableThHtml(key, field, label){
+  const st = tableState[key];
+  const active = st.sortField === field;
+  let icon;
+  if(active){
+    icon = st.sortDir==='asc'
+      ? '<i class="fa-solid fa-arrow-up-short-wide"></i>'
+      : '<i class="fa-solid fa-arrow-down-wide-short"></i>';
+  } else {
+    icon = '<i class="fa-solid fa-sort" style="opacity:.3;"></i>';
+  }
+  return `<th class="sortable-th${active?' active-sort':''}" data-key="${key}" data-field="${field}" title="Sort by ${label}">${label} ${icon}</th>`;
+}
+function wireSortableHeaders(container, key, onChange){
+  container.querySelectorAll('.sortable-th').forEach(th=>{
+    th.onclick = ()=>{
+      const field = th.dataset.field;
+      const st = tableState[key];
+      if(st.sortField===field){ st.sortDir = st.sortDir==='asc' ? 'desc' : 'asc'; }
+      else { st.sortField = field; st.sortDir = 'asc'; }
+      onChange();
+    };
+  });
+}
+function paginationRowHtml(key, totalPages, total, page, pageSize){
+  return `<div class="pagination-row">
+    <div class="hint" style="margin:0;">${total} entr${total===1?'y':'ies'} — page ${page} of ${totalPages}</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn secondary page-prev" data-key="${key}" ${page<=1?'disabled':''}>Prev</button>
+      <button class="btn secondary page-next" data-key="${key}" ${page>=totalPages?'disabled':''}>Next</button>
+      <select class="page-size-select" data-key="${key}">
+        ${[10,15,25,50].map(n=>`<option value="${n}" ${n===pageSize?'selected':''}>${n} / page</option>`).join('')}
+      </select>
+    </div>
+  </div>`;
+}
+function wireControls(scopeEl, key, onChange){
+  const inp = scopeEl.querySelector(`.filter-input[data-key="${key}"]`);
+  if(inp) inp.oninput = ()=>{ tableState[key].filter = inp.value; tableState[key].page = 1; onChange(); };
+  const sortSel = scopeEl.querySelector(`.sort-select[data-key="${key}"]`);
+  if(sortSel) sortSel.onchange = ()=>{ tableState[key].sortDir = sortSel.value; tableState[key].sortField = 'date'; onChange(); };
+  const periodSel = scopeEl.querySelector(`.period-select[data-key="${key}"]`);
+  if(periodSel) periodSel.onchange = ()=>{ tableState[key].periodFilter = periodSel.value; tableState[key].page = 1; renderAll(); };
+  const dateInp = scopeEl.querySelector(`.specific-date-input[data-key="${key}"]`);
+  if(dateInp) dateInp.onchange = ()=>{ tableState[key].specificDate = dateInp.value; tableState[key].page = 1; onChange(); };
+}
+function wirePaginationOnly(container, key, onChange){
+  container.querySelectorAll('.page-prev').forEach(btn=>{ btn.onclick=()=>{ tableState[key].page--; onChange(); }; });
+  container.querySelectorAll('.page-next').forEach(btn=>{ btn.onclick=()=>{ tableState[key].page++; onChange(); }; });
+  container.querySelectorAll('.page-size-select').forEach(sel=>{
+    sel.onchange=()=>{ tableState[key].pageSize=Number(sel.value); tableState[key].page=1; onChange(); };
+  });
+}
+function wireTableActions(container, arrName){
+  container.querySelectorAll('.actions .edit').forEach(btn=>{
+    btn.onclick = ()=>{ editingId = btn.dataset.id; renderAll(); };
+  });
+  container.querySelectorAll('.actions .del').forEach(btn=>{
+    btn.onclick = ()=>{ deleteRow(arrName, btn.dataset.id); };
+  });
+}
+function deleteRow(arrName, id, label){
+  const idx = state[arrName].findIndex(r=>r.id===id);
+  if(idx===-1) return;
+  const removed = state[arrName][idx];
+  state[arrName].splice(idx,1);
+  save(); renderAll();
+  showUndoToast((label||'Entry')+' deleted.', ()=>{
+    state[arrName].splice(idx,0,removed);
+    save(); renderAll();
+  });
+}
+
+/* =========================================================
+   UNDO TOAST
+   ========================================================= */
+function showUndoToast(message, onUndo){
+  const host = document.getElementById('toastHost');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span>${message}</span><button>Undo</button>`;
+  let done = false;
+  const finish = ()=>{ if(done) return; done = true; toast.remove(); };
+  toast.querySelector('button').onclick = ()=>{ finish(); onUndo(); };
+  host.appendChild(toast);
+  setTimeout(finish, 6000);
+}
+
+/* =========================================================
+   FORM VALIDATION
+   ========================================================= */
+function validateFields(form, rules){
+  // rules: [{name, label, test(value)=>bool, message}]
+  let firstInvalid = null;
+  let errors = [];
+  rules.forEach(rule=>{
+    const el = form.querySelector(`[name="${rule.name}"]`);
+    if(!el) return;
+    const fieldWrap = el.closest('.field');
+    const ok = rule.test(el.value);
+    if(fieldWrap){
+      let err = fieldWrap.querySelector('.field-err');
+      if(!err){
+        err = document.createElement('div');
+        err.className = 'field-err';
+        fieldWrap.appendChild(err);
+      }
+      if(!ok){
+        fieldWrap.classList.add('invalid');
+        err.textContent = rule.message;
+        errors.push(rule.message);
+        if(!firstInvalid) firstInvalid = el;
+      } else {
+        fieldWrap.classList.remove('invalid');
+      }
+    }
+  });
+  if(firstInvalid) firstInvalid.focus();
+  return errors;
+}
+function showFormError(form, errors){
+  let banner = form.querySelector('.form-error-banner');
+  if(!banner){
+    banner = document.createElement('div');
+    banner.className = 'form-error-banner';
+    form.insertBefore(banner, form.firstChild);
+  }
+  if(errors.length){
+    banner.innerHTML = 'Please fix: ' + errors.join(' · ');
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+function computeDashboardStats(){
+  const {start,end} = state.dashboard;
+
+  const salesInRange = state.dailySales.filter(r=>inRange(r.date,start,end));
+  const expInRange = state.expenses.filter(r=>inRange(r.date,start,end));
+
+  const revByChannel = {};
+  state.categories.orderType.forEach(ot=>{ revByChannel[ot] = 0; });
+  salesInRange.forEach(r=>{
+    if(r.orderType in revByChannel) revByChannel[r.orderType] += rowRevenue(r);
+  });
+  const totalRev = Object.values(revByChannel).reduce((s,v)=>s+v,0);
+  const deliveryFeeRev = salesInRange.reduce((s,r)=>s+(Number(r.deliveryFee)||0),0);
+  const itemRev = totalRev - deliveryFeeRev;
+  const orderIds = new Set(salesInRange.map(r=>r.orderId).filter(Boolean));
+
+  const revByPayment = {};
+  state.categories.paymentMethod.forEach(pm=>{ revByPayment[pm] = 0; });
+  salesInRange.forEach(r=>{
+    const pm = r.payment || 'Unspecified';
+    revByPayment[pm] = (revByPayment[pm]||0) + rowRevenue(r);
+  });
+  const totalTips = salesInRange.reduce((s,r)=>s+(Number(r.tip)||0),0);
+
+  const totalExp = expInRange.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const expByCat = {};
+  state.categories.category.forEach(c=>expByCat[c]=0);
+  expInRange.forEach(r=>{ expByCat[r.category] = (expByCat[r.category]||0) + (Number(r.amount)||0); });
+
+  const damageRows = expInRange.filter(r=>r.isDamage);
+  const damagesTotal = damageRows.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const damagesCount = damageRows.length;
+  const damagesPctOfExp = totalExp ? (damagesTotal/totalExp) : 0;
+
+  const compRows = salesInRange.filter(r=>r.compYN==='Yes');
+  const compCount = compRows.length;
+  const compCostTotal = compRows.reduce((s,r)=>s+compCost(r),0);
+  const compPct = totalRev ? (compCostTotal/totalRev) : 0;
+
+  const compByItemAll = {};
+  state.complimentary.forEach(c=>compByItemAll[c.name]=0);
+  compRows.forEach(r=>{ compByItemAll[r.compItem] = (compByItemAll[r.compItem]||0) + 1; });
+  const compByItem = Object.fromEntries(
+    Object.entries(compByItemAll).sort((a,b)=>b[1]-a[1]).slice(0,4)
+  );
+
+  const compByReason = {};
+  state.categories.reason.forEach(rs=>compByReason[rs]=0);
+  compRows.forEach(r=>{ compByReason[r.reason] = (compByReason[r.reason]||0) + compCost(r); });
+
+  const discRows = salesInRange.filter(r=>discountAmount(r)>0);
+  const discCount = discRows.length;
+  const discTotal = discRows.reduce((s,r)=>s+discountAmount(r),0);
+  const grossItemRev = salesInRange.reduce((s,r)=>s+itemTotal(r),0);
+  const discPct = grossItemRev ? (discTotal/grossItemRev) : 0;
+
+  const lowStockItems = state.inventory.filter(i=>invStatus(i).label==='LOW');
+  const totalCost = salesInRange.reduce((s,r)=>{
+    const menuItem = state.menuItems.find(m=>m.name===r.item);
+    const unitCost = menuItem ? (Number(menuItem.cost)||0) : 0;
+    return s + unitCost * (Number(r.qty)||0);
+  }, 0);
+  const hasCostData = state.menuItems.some(m=>Number(m.cost)>0);
+  // Gross Profit: revenue minus ingredient/COGS cost only (standard term: Revenue − COGS)
+  const grossProfit = totalRev - totalCost;
+  // Total Profit: revenue minus operating expenses only — an interim figure, before backing out complimentary giveaways
+  const totalProfit = totalRev - totalExp;
+  // Net Profit: the true bottom line — revenue minus expenses minus complimentary cost (standard term: the final number after every deduction)
+  const netProfit = totalRev - totalExp - compCostTotal;
+
+  return { start,end, revByChannel, revByPayment, totalTips, totalRev, deliveryFeeRev, itemRev, orderIds, totalExp, expByCat,
+    compCount, compCostTotal, compPct, compByItem, compByReason,
+    discCount, discTotal, discPct,
+    damagesTotal, damagesCount, damagesPctOfExp,
+    lowStockItems, totalCost, hasCostData, grossProfit, netProfit, totalProfit };
+}
+
+function trendBucketKey(dateStr, granularity){
+  if(granularity==='daily') return dateStr;
+  if(granularity==='weekly') return getWeekStart(dateStr);
+  if(granularity==='monthly') return dateStr.slice(0,7);
+  return dateStr.slice(0,4);
+}
+function computeSalesTrend(granularity){
+  const now = new Date();
+  const buckets = {};
+  state.dailySales.forEach(r=>{
+    if(!r.date) return;
+    const key = trendBucketKey(r.date, granularity);
+    buckets[key] = (buckets[key]||0) + rowRevenue(r);
+  });
+  const keys = [];
+  if(granularity==='daily'){
+    for(let i=2;i>=0;i--){
+      const dd = new Date(now); dd.setDate(dd.getDate()-i);
+      keys.push(dd.toISOString().slice(0,10));
+    }
+  } else if(granularity==='weekly'){
+    const thisWeekStart = getWeekStart(now.toISOString().slice(0,10));
+    const base = new Date(thisWeekStart+'T00:00:00');
+    for(let i=2;i>=0;i--){
+      const wd = new Date(base); wd.setDate(wd.getDate() - i*7);
+      keys.push(wd.toISOString().slice(0,10));
+    }
+  } else if(granularity==='monthly'){
+    for(let i=2;i>=0;i--){
+      const md = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      keys.push(md.toISOString().slice(0,7));
+    }
+  } else {
+    for(let i=2;i>=0;i--){
+      keys.push(String(now.getFullYear()-i));
+    }
+  }
+  const result = {};
+  keys.forEach(k=>{
+    let label = k;
+    if(granularity==='daily') label = dayAbbrev(k) + ' ' + k.slice(5);
+    if(granularity==='weekly') label = 'Wk of ' + k;
+    result[label] = buckets[k] || 0;
+  });
+  return result;
+}
+function computeTopCustomers(limit){
+  const {start,end} = state.dashboard;
+  const salesInRange = state.dailySales.filter(r=>inRange(r.date,start,end));
+  const byCustomer = {};
+  salesInRange.forEach(r=>{
+    const name = (r.customerName||'').trim();
+    if(!name) return;
+    if(!byCustomer[name]) byCustomer[name] = {orders:new Set(), qty:0, revenue:0};
+    byCustomer[name].orders.add(r.orderId || r.id);
+    byCustomer[name].qty += Number(r.qty)||0;
+    byCustomer[name].revenue += rowRevenue(r);
+  });
+  const arr = Object.entries(byCustomer).map(([name,v])=>({name, orders:v.orders.size, qty:v.qty, revenue:v.revenue}));
+  arr.sort((a,b)=> b.orders-a.orders || b.revenue-a.revenue);
+  return arr.slice(0, limit);
+}
+function computeTopItems(limit){
+  const {start,end} = state.dashboard;
+  const salesInRange = state.dailySales.filter(r=>inRange(r.date,start,end));
+  const byItem = {};
+  salesInRange.forEach(r=>{
+    if(!r.item) return;
+    if(!byItem[r.item]) byItem[r.item] = {qty:0, revenue:0};
+    byItem[r.item].qty += Number(r.qty)||0;
+    byItem[r.item].revenue += itemTotal(r);
+  });
+  const arr = Object.entries(byItem).map(([item,v])=>({item, qty:v.qty, revenue:v.revenue}));
+  arr.sort((a,b)=> b.revenue-a.revenue);
+  return arr.slice(0, limit);
+}
+
+/* ---- Profit per item (uses optional menu-item ingredient Cost) ---- */
+function computeProfitByItem(limit){
+  const {start,end} = state.dashboard;
+  const salesInRange = state.dailySales.filter(r=>inRange(r.date,start,end));
+  const byItem = {};
+  salesInRange.forEach(r=>{
+    if(!r.item) return;
+    if(!byItem[r.item]) byItem[r.item] = {qty:0, revenue:0, cost:0};
+    const menuItem = state.menuItems.find(m=>m.name===r.item);
+    const unitCost = menuItem ? (Number(menuItem.cost)||0) : 0;
+    byItem[r.item].qty += Number(r.qty)||0;
+    byItem[r.item].revenue += netItemTotal(r);
+    byItem[r.item].cost += unitCost * (Number(r.qty)||0);
+  });
+  const arr = Object.entries(byItem).map(([item,v])=>({item, qty:v.qty, revenue:v.revenue, cost:v.cost, profit:v.revenue-v.cost}));
+  arr.sort((a,b)=> b.profit-a.profit);
+  const hasCostData = state.menuItems.some(m=>Number(m.cost)>0);
+  return { rows: arr.slice(0, limit), hasCostData };
+}
+
+/* ---- Revenue by day of week, within the current dashboard period ---- */
+function computeDayOfWeekTrend(){
+  const {start,end} = state.dashboard;
+  const order = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const totals = {}; order.forEach(d=>totals[d]=0);
+  state.dailySales.filter(r=>inRange(r.date,start,end)).forEach(r=>{
+    const d = dayAbbrev(r.date);
+    if(d) totals[d] += rowRevenue(r);
+  });
+  return totals;
+}
+
+/* ---- Period-over-period comparison (previous period of equal length) ---- */
+function computePreviousPeriodStats(){
+  const {start,end} = state.dashboard;
+  if(!start || !end) return null;
+  const startD = new Date(start+'T00:00:00');
+  const endD = new Date(end+'T00:00:00');
+  const spanDays = Math.round((endD-startD)/86400000) + 1;
+  if(spanDays<=0) return null;
+  const prevEndD = new Date(startD); prevEndD.setDate(prevEndD.getDate()-1);
+  const prevStartD = new Date(prevEndD); prevStartD.setDate(prevStartD.getDate()-(spanDays-1));
+  const prevStart = prevStartD.toISOString().slice(0,10);
+  const prevEnd = prevEndD.toISOString().slice(0,10);
+
+  const salesInRange = state.dailySales.filter(r=>inRange(r.date,prevStart,prevEnd));
+  const expInRange = state.expenses.filter(r=>inRange(r.date,prevStart,prevEnd));
+  const totalRev = salesInRange.reduce((s,r)=>s+rowRevenue(r),0);
+  const totalExp = expInRange.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const compCostTotal = salesInRange.filter(r=>r.compYN==='Yes').reduce((s,r)=>s+compCost(r),0);
+  const netProfit = totalRev - totalExp - compCostTotal;
+  return { prevStart, prevEnd, totalRev, totalExp, netProfit };
+}
+function pctChange(cur, prev){
+  if(!prev) return null;
+  return ((cur-prev)/Math.abs(prev))*100;
+}
+function cmpBadgeHtml(cur, prev, higherIsBetter){
+  if(higherIsBetter===undefined) higherIsBetter = true;
+  const pct = pctChange(cur, prev);
+  if(pct===null) return '';
+  const dir = pct>0.5 ? 'up' : (pct<-0.5 ? 'down' : 'flat');
+  const good = dir==='flat' ? 'flat' : ((dir==='up')===higherIsBetter ? 'up' : 'down');
+  const arrow = dir==='up' ? '▲' : (dir==='down' ? '▼' : '▬');
+  return `<span class="cmp-badge ${good}">${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
+}
+
+function renderDashboard(main){
+  const { start,end, revByChannel, revByPayment, totalTips, totalRev, deliveryFeeRev, itemRev, orderIds, totalExp, expByCat,
+    compCount, compCostTotal, compPct, compByItem, compByReason,
+    discCount, discTotal, discPct,
+    damagesTotal, damagesCount, damagesPctOfExp,
+    lowStockItems, totalCost, hasCostData, grossProfit, netProfit, totalProfit } = computeDashboardStats();
+
+  const channelColorClass = (ch)=>{
+    const key = (ch||'').toLowerCase();
+    if(key==='delivery') return 'delivery';
+    if(key==='pickup') return 'pickup';
+    if(key==='catering') return 'catering';
+    return '';
+  };
+  const channelIcon = (ch)=>{
+    const k = (ch||'').toLowerCase();
+    if(k==='delivery') return '<i class="fa-solid fa-truck"></i>';
+    if(k==='pickup') return '<i class="fa-solid fa-bag-shopping"></i>';
+    if(k==='catering') return '<i class="fa-solid fa-champagne-glasses"></i>';
+    return '<i class="fa-solid fa-utensils"></i>';
+  };
+  const channelCards = Object.entries(revByChannel).map(([ch,val])=>
+    `<div class="kpi-card ${channelColorClass(ch)}"><span class="kpi-icon">${channelIcon(ch)}</span><div class="kpi-label">${ch} Revenue</div><div class="kpi-value">${fmtMoney(val)}</div></div>`
+  ).join('');
+
+  const trendData = computeSalesTrend(salesTrendGranularity);
+  const topCustomers = computeTopCustomers(5);
+  const topItems = computeTopItems(5);
+  const dowTrend = computeDayOfWeekTrend();
+  const profitByItem = computeProfitByItem(5);
+  const noDataAtAll = !state.dailySales.length && !state.expenses.length;
+
+  main.innerHTML = `
+    ${noDataAtAll ? `
+    <div class="getting-started">
+      <h3><i class="fa-solid fa-hand"></i> Welcome to Dar Al-Taste</h3>
+      <div class="page-sub">You have no sales or expenses logged yet. Get started:</div>
+      <button class="btn" id="gsAddSale">+ Log a sale</button>
+      <button class="btn secondary" id="gsAddExpense">+ Log an expense</button>
+      <button class="btn secondary" id="gsImport">Import a backup</button>
+    </div>` : ''}
+    <div class="dash-header">
+      <div>
+        <h2 class="page-title"><i class="fa-solid fa-chart-line"></i> Dashboard</h2>
+        <div class="page-sub">Home-made food business — revenue, expenses & complimentary tracking</div>
+      </div>
+      <div class="period-compact">
+        <div id="backupBanner"></div>
+        <div class="field"><label>Start date</label><input type="date" id="periodStart" value="${start}"></div>
+        <div class="field"><label>End date</label><input type="date" id="periodEnd" value="${end}"></div>
+        <button class="btn secondary" id="applyPeriod">Apply</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      ${channelCards}
+      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-utensils"></i></span><div class="kpi-label">Item Revenue</div><div class="kpi-value">${fmtMoney(itemRev)}</div></div>
+      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-car"></i></span><div class="kpi-label">Delivery Fee Revenue</div><div class="kpi-value">${fmtMoney(deliveryFeeRev)}</div></div>
+      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div class="kpi-label">Total Tips</div><div class="kpi-value">${fmtMoney(totalTips)}</div></div>
+      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-receipt"></i></span><div class="kpi-label">Unique Orders</div><div class="kpi-value">${orderIds.size}</div></div>
+      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-gift"></i></span><div class="kpi-label">Complimentary Cost</div><div class="kpi-value">${fmtMoney(compCostTotal)}</div></div>
+      <div class="kpi-card ${damagesTotal>0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></span><div class="kpi-label">Damages / Losses</div><div class="kpi-value" style="${damagesTotal>0?'color:var(--tomato)':''}">${fmtMoney(damagesTotal)}</div>
+        ${damagesCount ? `<div class="kpi-sub">${damagesCount} entr${damagesCount===1?'y':'ies'} · ${(damagesPctOfExp*100).toFixed(1)}% of expenses</div>` : ''}</div>
+    </div>
+    ${damagesTotal>0 ? `<div class="hint" style="margin-top:-14px;margin-bottom:22px;">Damages/losses are already included in Total Expenses below — this card just breaks out how much of it was loss (spoilage, breakage, accidents) rather than normal running cost.</div>` : ''}
+
+    <div class="section">
+      <h3><i class="fa-solid fa-arrow-trend-up"></i> Net profit</h3>
+      <div class="kpi-grid">
+        <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><div class="kpi-label">Total Revenue</div><div class="kpi-value">${fmtMoney(totalRev)}</div></div>
+        <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-layer-group"></i></span><div class="kpi-label">Total Cost</div><div class="kpi-value">${fmtMoney(totalCost)}</div></div>
+        <div class="kpi-card profit ${totalProfit<0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-scale-balanced"></i></span><div class="kpi-label">Total Profit</div><div class="kpi-value">${fmtMoney(totalProfit)}</div></div>
+        <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-money-bill-transfer"></i></span><div class="kpi-label">Total Expenses</div><div class="kpi-value">${fmtMoney(totalExp)}</div></div>
+        <div class="kpi-card profit ${netProfit<0?'neg':''}"><span class="kpi-icon">${netProfit<0?'<i class="fa-solid fa-arrow-trend-down"></i>':'<i class="fa-solid fa-arrow-trend-up"></i>'}</span><div class="kpi-label">Net Profit</div><div class="kpi-value">${fmtMoney(netProfit)}</div></div>
+        <div class="kpi-card profit ${grossProfit<0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-chart-simple"></i></span><div class="kpi-label">Gross Profit</div><div class="kpi-value">${fmtMoney(grossProfit)}</div></div>
+      </div>
+      ${!hasCostData ? `<div class="hint" style="margin-top:10px;margin-bottom:0;">Total Cost is $0 because no Menu Item has a Cost set yet — add ingredient cost to items in Menu Items to see Total Cost and Gross Profit here.</div>` : `<div class="hint" style="margin-top:10px;margin-bottom:0;">Gross Profit = Total Revenue − Total Cost (ingredient cost only). Total Profit = Total Revenue − Total Expenses. Net Profit = Total Revenue − Total Expenses − Complimentary Cost (the final bottom line, after every deduction).</div>`}
+    </div>
+
+    <div class="section">
+      <h3><i class="fa-solid fa-gift"></i> Complimentary &amp; Discounts</h3>
+      <div class="cards-row mini">
+        <div class="card"><div class="label">Complimentary Count</div><div class="value">${compCount}</div></div>
+        <div class="card"><div class="label">Complimentary Cost</div><div class="value">${fmtMoney(compCostTotal)}</div></div>
+        <div class="card"><div class="label">Comp. Cost % of Revenue</div><div class="value">${(compPct*100).toFixed(1)}%</div></div>
+        <div class="card"><div class="label">Discount Count</div><div class="value">${discCount}</div></div>
+        <div class="card"><div class="label">Discount Total</div><div class="value">${fmtMoney(discTotal)}</div></div>
+        <div class="card"><div class="label">Discount % of Gross</div><div class="value">${(discPct*100).toFixed(1)}%</div></div>
+      </div>
+      <div class="two-col" style="margin-top:14px;">
+        <div>
+          <div class="sub-h">Complimentary by item (times given)</div>
+          ${barChart(compByItem)}
+        </div>
+        <div>
+          <div class="sub-h">Complimentary by reason (cost)</div>
+          ${barChart(compByReason, true)}
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><i class="fa-solid fa-sack-dollar"></i> Expenses &amp; Revenue breakdown</h3>
+      <div class="three-col">
+        <div>
+          <div class="sub-h">Revenue trend</div>
+          <div class="period-row" style="margin-bottom:10px;">
+            <div class="field" style="width:160px;"><label>Group by</label>
+              <select id="trendGranularity">
+                <option value="daily" ${salesTrendGranularity==='daily'?'selected':''}>Daily</option>
+                <option value="weekly" ${salesTrendGranularity==='weekly'?'selected':''}>Weekly</option>
+                <option value="monthly" ${salesTrendGranularity==='monthly'?'selected':''}>Monthly</option>
+                <option value="yearly" ${salesTrendGranularity==='yearly'?'selected':''}>Yearly</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:0;margin-bottom:10px;">Last ${salesTrendGranularity==='daily'?'3 days':salesTrendGranularity==='weekly'?'3 weeks':salesTrendGranularity==='monthly'?'3 months':'3 years'}, from today.</div>
+          ${barChart(trendData, true)}
+        </div>
+        <div>
+          <div class="sub-h">Revenue by payment method</div>
+          <div class="scroll-box bars">${barChart(revByPayment, true)}</div>
+          <div class="hint">Scroll for more payment methods</div>
+        </div>
+        <div>
+          <div class="sub-h-row"><div class="sub-h">Revenue by day of week</div><span class="inline-note">${start} to ${end}</span></div>
+          ${barChart(dowTrend, true)}
+        </div>
+      </div>
+      <div class="two-col" style="margin-top:20px;">
+        <div>
+          <div class="sub-h">Expenses by category</div>
+          <div class="scroll-box">${plainTable(expByCat, true, 'Category', 'Amount')}</div>
+          <div class="hint">Total: ${fmtMoney(totalExp)} — scroll for more categories</div>
+        </div>
+        <div>
+          <div class="sub-h">Profit per item</div>
+          ${profitByItemTable(profitByItem.rows)}
+          ${!profitByItem.hasCostData ? `<div class="empty-note">Add a "Cost" to your Menu Items to see profit here.</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3><i class="fa-solid fa-trophy"></i> Top customers, top items &amp; low stock items</h3>
+      <div class="three-col">
+        <div>
+          <div class="sub-h">Top customers (repeat orders)</div>
+          ${topCustomersTable(topCustomers)}
+        </div>
+        <div>
+          <div class="sub-h">Top items</div>
+          ${topItemsTable(topItems)}
+        </div>
+        <div>
+          <div class="sub-h-row"><span class="sub-h">Low stock items</span><span class="count-pill" style="color:${lowStockItems.length>0?'var(--tomato)':'var(--sage)'}">${lowStockItems.length}</span></div>
+          ${lowStockItems.length ? `<table><thead><tr><th>Item</th><th>Current</th><th>Reorder</th><th>Unit</th></tr></thead><tbody>
+            ${lowStockItems.slice(0,5).map(i=>`<tr><td>${i.name}</td><td>${i.currentStock}</td><td>${i.reorderLevel}</td><td>${i.unit||''}</td></tr>`).join('')}
+          </tbody></table>` : `<div class="empty-note">Nothing needs restocking right now.</div>`}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('applyPeriod').onclick = ()=>{
+    state.dashboard.start = document.getElementById('periodStart').value;
+    state.dashboard.end = document.getElementById('periodEnd').value;
+    save(); renderAll();
+  };
+  const gsSale = document.getElementById('gsAddSale');
+  if(gsSale) gsSale.onclick = ()=>{ activeTab='sales'; renderAll(); };
+  const gsExp = document.getElementById('gsAddExpense');
+  if(gsExp) gsExp.onclick = ()=>{ activeTab='expenses'; renderAll(); };
+  const gsImp = document.getElementById('gsImport');
+  if(gsImp) gsImp.onclick = ()=> document.getElementById('fileImport').click();
+  document.getElementById('trendGranularity').onchange = (e)=>{
+    salesTrendGranularity = e.target.value;
+    renderAll();
+  };
+}
+
+function barChart(dataObj, isMoney){
+  const entries = Object.entries(dataObj);
+  const max = Math.max(1, ...entries.map(e=>e[1]));
+  if(!entries.length || entries.every(e=>e[1]===0)) return '<div class="empty-note">No data in this period yet.</div>';
+  return entries.map(([label,val])=>{
+    const pct = Math.round((val/max)*100);
+    const display = isMoney ? fmtMoney(val) : val.toLocaleString();
+    return `<div class="bar-row">
+      <div class="bar-label" title="${label}">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="bar-value">${display}</div>
+    </div>`;
+  }).join('');
+}
+function plainTable(dataObj, isMoney, labelHeader, valueHeader){
+  const entries = Object.entries(dataObj);
+  if(!entries.length || entries.every(([,v])=>v===0)) return '<div class="empty-note">No data in this period yet.</div>';
+  return `<table><thead><tr><th>${labelHeader}</th><th>${valueHeader}</th></tr></thead><tbody>
+    ${entries.map(([k,v])=>`<tr><td>${k}</td><td>${isMoney?fmtMoney(v):v.toLocaleString()}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+function topCustomersTable(arr){
+  if(!arr.length) return '<div class="empty-note">No customer data yet — add a Customer Name on Daily Sales.</div>';
+  return `<table><thead><tr><th>Customer</th><th>Orders</th><th>Qty</th><th>Revenue</th></tr></thead><tbody>
+    ${arr.map(c=>`<tr><td>${c.name}</td><td>${c.orders}</td><td>${c.qty}</td><td>${fmtMoney(c.revenue)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+function topItemsTable(arr){
+  if(!arr.length) return '<div class="empty-note">No sales data in this period yet.</div>';
+  return `<table><thead><tr><th>Item</th><th>Qty</th><th>Revenue</th></tr></thead><tbody>
+    ${arr.map(i=>`<tr><td>${i.item}</td><td>${i.qty}</td><td>${fmtMoney(i.revenue)}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+function profitByItemTable(arr){
+  if(!arr.length) return '<div class="empty-note">No sales data in this period yet.</div>';
+  return `<table><thead><tr><th>Item</th><th>Qty</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Margin %</th></tr></thead><tbody>
+    ${arr.map(i=>{
+      const margin = i.revenue ? (i.profit/i.revenue*100) : 0;
+      return `<tr><td>${i.item}</td><td>${i.qty}</td><td>${fmtMoney(i.revenue)}</td><td>${fmtMoney(i.cost)}</td>
+      <td style="color:${i.profit<0?'var(--tomato)':'var(--sage)'};font-weight:600;">${fmtMoney(i.profit)}</td>
+      <td style="color:${margin<0?'var(--tomato)':'var(--sage)'};font-weight:600;">${margin.toFixed(1)}%</td></tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+
+/* =========================================================
+   DAILY SALES
+   ========================================================= */
+function renderSales(main){
+  const cats = state.categories;
+  const editing = state.dailySales.find(r=>r.id===editingId);
+  const activeMenuNames = state.menuItems.filter(m=>m.active==='Y').map(m=>m.name);
+  const itemOptions = editing && editing.item && !activeMenuNames.includes(editing.item)
+    ? [editing.item, ...activeMenuNames] : activeMenuNames;
+
+  main.innerHTML = `
+    <h2 class="page-title"><i class="fa-solid fa-receipt"></i> Daily Sales</h2>
+    <div class="page-sub">One row per item. Items sharing an Order ID belong to the same customer order.</div>
+
+    <div class="section">
+      <h3>${editing ? 'Edit entry' : 'Add entry'}</h3>
+      <form id="saleForm">
+        <div class="form-grid">
+          <div class="field"><label>Date</label><input type="date" name="date" required value="${editing?editing.date:(new Date().toISOString().slice(0,10))}"></div>
+          <div class="field"><label>Order ID</label><input type="text" name="orderId" placeholder="ORD-1001" value="${editing?editing.orderId:nextOrderId()}"></div>
+          <div class="field"><label>Customer Name</label><input type="text" name="customerName" placeholder="Customer name" value="${editing?(editing.customerName||''):''}"></div>
+          <div class="field"><label>Item Name</label>${selectHtml('item', itemOptions, editing?editing.item:'')}</div>
+          <div class="field"><label>Quantity</label><input type="number" name="qty" min="0" step="1" value="${editing?editing.qty:1}"></div>
+          <div class="field"><label>Unit Price</label><input type="number" name="price" min="0" step="0.01" value="${editing?editing.price:''}"></div>
+          <div class="field"><label>Discount Type</label>${selectHtml('discountType',['Amount','Percent'],editing?editing.discountType:'Amount')}</div>
+          <div class="field"><label>Discount Value</label><input type="number" name="discountValue" min="0" step="0.01" value="${editing?(editing.discountValue||''):''}"></div>
+          <div class="field"><label>Delivery Fee</label><input type="number" name="deliveryFee" min="0" step="0.01" value="${editing?(editing.deliveryFee||''):''}"></div>
+          <div class="field"><label>Order Type</label>${selectHtml('orderType',cats.orderType,editing?editing.orderType:'')}</div>
+          <div class="field"><label>Payment Method</label>${selectHtml('payment',cats.paymentMethod,editing?editing.payment:'')}</div>
+          <div class="field"><label>Tip</label><input type="number" name="tip" min="0" step="0.01" value="${editing?(editing.tip||''):''}"></div>
+          <div class="field"><label>Complimentary?</label>${selectHtml('compYN',['No','Yes'],editing?editing.compYN:'No')}</div>
+          <div class="field"><label>Complimentary Item</label>${selectHtml('compItem',state.complimentary.map(c=>c.name),editing?editing.compItem:'',true)}</div>
+          <div class="field"><label>Complimentary Reason</label>${selectHtml('reason',cats.reason,editing?editing.reason:'',true)}</div>
+          <div class="field"><label>Notes</label><input type="text" name="notes" placeholder="Delivery notes, etc." value="${editing?(editing.notes||''):''}"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn">${editing?'Save changes':'Add entry'}</button>
+          ${editing?'<button type="button" class="btn secondary" id="cancelEdit">Cancel</button>':''}
+        </div>
+      </form>
+    </div>
+
+    <div class="section table-wrap">
+      ${entriesHeaderHtml('sales','Search item, order ID, customer, payment...',[{value:'desc',label:'Newest first'},{value:'asc',label:'Oldest first'}])}
+      <div id="salesTableContainer"></div>
+    </div>
+  `;
+
+  const itemSelect = document.querySelector('#saleForm select[name="item"]');
+  if(itemSelect){
+    itemSelect.onchange = ()=>{
+      const m = state.menuItems.find(mi=>mi.name===itemSelect.value);
+      const priceInput = document.querySelector('#saleForm input[name="price"]');
+      if(m && priceInput) priceInput.value = m.price;
+    };
+  }
+
+  document.getElementById('saleForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const errors = validateFields(e.target, [
+      {name:'date', label:'Date', test:v=>!!v, message:'Date is required'},
+      {name:'item', label:'Item', test:v=>!!v, message:'Item is required'},
+      {name:'qty', label:'Qty', test:v=>Number(v)>0, message:'Qty must be greater than 0'},
+      {name:'price', label:'Price', test:v=>v!=='' && Number(v)>=0, message:'Price cannot be negative'},
+    ]);
+    showFormError(e.target, errors);
+    if(errors.length) return;
+    const f = new FormData(e.target);
+    const row = mkSale({
+      id: editing?editing.id:uid(),
+      date: f.get('date'), orderId: f.get('orderId'), item: f.get('item'),
+      qty: Number(f.get('qty'))||0, price: Number(f.get('price'))||0,
+      discountType: f.get('discountType'), discountValue: Number(f.get('discountValue'))||0,
+      deliveryFee: Number(f.get('deliveryFee'))||0,
+      orderType: f.get('orderType'), compYN: f.get('compYN'),
+      compItem: f.get('compItem'), reason: f.get('reason'), payment: f.get('payment'),
+      tip: Number(f.get('tip'))||0,
+      customerName: f.get('customerName'), notes: f.get('notes')
+    });
+    if(editing){
+      const idx = state.dailySales.findIndex(r=>r.id===editing.id);
+      state.dailySales[idx] = row;
+    } else {
+      state.dailySales.push(row);
+    }
+    editingId = null; save(); renderAll();
+  };
+
+  wireControls(main, 'sales', renderSalesTable);
+  renderSalesTable();
+}
+function nextOrderId(){
+  const nums = state.dailySales.map(r=>{
+    const m = /(\d+)\s*$/.exec(r.orderId||'');
+    return m ? Number(m[1]) : 0;
+  });
+  const max = nums.length ? Math.max(...nums) : 1000;
+  return 'ORD-' + (max+1);
+}
+function renderSalesTable(){
+  const container = document.getElementById('salesTableContainer');
+  if(!container) return;
+  let rows = filterRows(state.dailySales, tableState.sales.filter,
+    ['item','orderId','orderType','payment','customerName','notes','compItem','reason']);
+  rows = applyPeriodFilter(rows, 'date', tableState.sales.periodFilter, tableState.sales.specificDate);
+  rows = sortByField(rows, tableState.sales.sortField || 'date', tableState.sales.sortDir);
+  const {pageRows, totalPages, total, page} = paginateRows(rows, 'sales');
+
+  container.innerHTML = `
+    <table>
+      <thead><tr>
+        ${sortableThHtml('sales','date','Date')}<th>Day</th>${sortableThHtml('sales','orderId','Order ID')}<th>Customer Name</th><th>Item</th><th>Qty</th><th>Price</th><th>Item Total</th>
+        <th>Disc. Type</th><th>Disc. Value</th><th>Disc. Amt</th><th>Delivery Fee</th><th>Net Total</th>
+        <th>Order Type</th><th>Payment</th><th>Tip</th><th>Comp?</th><th>Comp Item</th><th>Comp Cost</th><th>Reason</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${pageRows.map(r=>`
+          <tr>
+            <td>${r.date}</td><td>${dayAbbrev(r.date)}</td><td>${r.orderId||''}</td><td>${r.customerName||''}</td><td>${r.item}</td>
+            <td>${r.qty}</td><td>${fmtMoney(r.price)}</td><td>${fmtMoney(itemTotal(r))}</td>
+            <td>${r.discountType||''}</td><td>${r.discountValue?(r.discountType==='Percent'?r.discountValue+'%':fmtMoney(r.discountValue)):''}</td>
+            <td>${fmtMoney(discountAmount(r))}</td><td>${fmtMoney(r.deliveryFee||0)}</td><td>${fmtMoney(rowRevenue(r))}</td>
+            <td>${r.orderType||''}</td><td>${r.payment||''}</td><td>${fmtMoney(r.tip||0)}</td>
+            <td>${r.compYN}</td><td>${r.compYN==='Yes'?(r.compItem||''):''}</td>
+            <td>${r.compYN==='Yes'?fmtMoney(compCost(r)):''}</td><td>${r.compYN==='Yes'?(r.reason||''):''}</td><td>${r.notes||''}</td>
+            <td class="actions">
+              <button class="edit" data-id="${r.id}">Edit</button>
+              <button class="del" data-id="${r.id}">Delete</button>
+            </td>
+          </tr>`).join('') || `<tr><td colspan="22" class="empty-note">No entries found.</td></tr>`}
+      </tbody>
+    </table>
+    ${paginationRowHtml('sales', totalPages, total, page, tableState.sales.pageSize)}
+  `;
+  wireTableActions(container, 'dailySales');
+  wirePaginationOnly(container, 'sales', renderSalesTable);
+  wireSortableHeaders(container, 'sales', renderSalesTable);
+}
+
+
+function selectHtml(name, options, selected, includeBlank){
+  let html = `<select name="${name}">`;
+  if(includeBlank) html += `<option value="">—</option>`;
+  options.forEach(o=>{
+    html += `<option value="${o}" ${o===selected?'selected':''}>${o}</option>`;
+  });
+  html += `</select>`;
+  return html;
+}
+
+/* =========================================================
+   EXPENSES
+   ========================================================= */
+function renderExpenses(main){
+  const cats = state.categories;
+  const editing = state.expenses.find(r=>r.id===editingId);
+  const vendorOptions = editing && editing.vendor && !cats.vendor.includes(editing.vendor)
+    ? [editing.vendor, ...cats.vendor] : cats.vendor;
+  main.innerHTML = `
+    <h2 class="page-title"><i class="fa-solid fa-money-bill-wave"></i> Expenses</h2>
+    <div class="page-sub">One row per expense.</div>
+    <div class="section">
+      <h3>${editing?'Edit entry':'Add entry'}</h3>
+      <form id="expForm">
+        <div class="form-grid">
+          <div class="field"><label>Date</label><input type="date" name="date" required value="${editing?editing.date:(new Date().toISOString().slice(0,10))}"></div>
+          <div class="field"><label>Category</label>${selectHtml('category',cats.category,editing?editing.category:'')}</div>
+          <div class="field"><label>Description</label><input type="text" name="description" value="${editing?editing.description:''}"></div>
+          <div class="field"><label>Vendor</label>${selectHtml('vendor',vendorOptions,editing?editing.vendor:'',true)}</div>
+          <div class="field"><label>Payment Method</label>${selectHtml('payment',cats.paymentMethod,editing?editing.payment:'')}</div>
+          <div class="field"><label>Amount</label><input type="number" step="0.01" min="0" name="amount" value="${editing?editing.amount:''}"></div>
+          <div class="field"><label>Damage / Loss?</label>${selectHtml('isDamage',['No','Yes'],editing?(editing.isDamage?'Yes':'No'):'No')}</div>
+          <div class="field"><label>Notes</label><input type="text" name="notes" value="${editing?(editing.notes||''):''}"></div>
+        </div>
+        <div class="hint" style="margin-top:-6px;">Mark "Damage / Loss" for spoilage, breakage, accidents, or wasted stock — it's tracked separately as a loss on the dashboard.</div>
+        <div class="form-actions">
+          <button type="submit" class="btn">${editing?'Save changes':'Add entry'}</button>
+          ${editing?'<button type="button" class="btn secondary" id="cancelEdit">Cancel</button>':''}
+        </div>
+      </form>
+    </div>
+    <div class="section table-wrap">
+      ${entriesHeaderHtml('expenses','Search category, description, vendor...',[{value:'desc',label:'Newest first'},{value:'asc',label:'Oldest first'}])}
+      <div id="expensesTableContainer"></div>
+    </div>
+  `;
+
+  document.getElementById('expForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const errors = validateFields(e.target, [
+      {name:'date', label:'Date', test:v=>!!v, message:'Date is required'},
+      {name:'category', label:'Category', test:v=>!!v, message:'Category is required'},
+      {name:'amount', label:'Amount', test:v=>v!=='' && Number(v)>0, message:'Amount must be greater than 0'},
+    ]);
+    showFormError(e.target, errors);
+    if(errors.length) return;
+    const f = new FormData(e.target);
+    const row = { id: editing?editing.id:uid(), date:f.get('date'), category:f.get('category'),
+      description:f.get('description'), vendor:f.get('vendor'), payment:f.get('payment'), amount:Number(f.get('amount'))||0,
+      isDamage: f.get('isDamage')==='Yes', notes:f.get('notes') };
+    if(editing){ state.expenses[state.expenses.findIndex(r=>r.id===editing.id)] = row; }
+    else state.expenses.push(row);
+    editingId=null; save(); renderAll();
+  };
+  wireControls(main, 'expenses', renderExpensesTable);
+  renderExpensesTable();
+}
+function renderExpensesTable(){
+  const container = document.getElementById('expensesTableContainer');
+  if(!container) return;
+  let rows = filterRows(state.expenses, tableState.expenses.filter,
+    ['category','description','vendor','payment','notes']);
+  rows = applyPeriodFilter(rows, 'date', tableState.expenses.periodFilter, tableState.expenses.specificDate);
+  rows = sortByField(rows, tableState.expenses.sortField || 'date', tableState.expenses.sortDir);
+  const {pageRows, totalPages, total, page} = paginateRows(rows, 'expenses');
+
+  container.innerHTML = `
+    <table>
+      <thead><tr>${sortableThHtml('expenses','date','Date')}<th>Day</th><th>Category</th><th>Description</th><th>Vendor</th><th>Payment</th><th>Amount</th><th>Damage/Loss</th><th>Notes</th><th></th></tr></thead>
+      <tbody>
+        ${pageRows.map(r=>`
+          <tr>
+            <td>${r.date}</td><td>${dayAbbrev(r.date)}</td><td>${r.category||''}</td><td>${r.description||''}</td>
+            <td>${r.vendor||''}</td><td>${r.payment||''}</td><td>${fmtMoney(r.amount)}</td>
+            <td>${r.isDamage?'<span class="status-pill status-LOW"><i class="fa-solid fa-triangle-exclamation"></i> Loss</span>':''}</td><td>${r.notes||''}</td>
+            <td class="actions"><button class="edit" data-id="${r.id}">Edit</button><button class="del" data-id="${r.id}">Delete</button></td>
+          </tr>`).join('') || `<tr><td colspan="10" class="empty-note">No entries found.</td></tr>`}
+      </tbody>
+    </table>
+    ${paginationRowHtml('expenses', totalPages, total, page, tableState.expenses.pageSize)}
+  `;
+  wireTableActions(container, 'expenses');
+  wirePaginationOnly(container, 'expenses', renderExpensesTable);
+  wireSortableHeaders(container, 'expenses', renderExpensesTable);
+}
+
+/* =========================================================
+   INVENTORY
+   ========================================================= */
+function renderInventory(main){
+  const cats = state.categories;
+  const editing = state.inventory.find(r=>r.id===editingId);
+  main.innerHTML = `
+    <h2 class="page-title"><i class="fa-solid fa-box"></i> Inventory</h2>
+    <div class="page-sub">Manual stock list — update Current Stock as you use or purchase ingredients.</div>
+    <div class="section">
+      <h3>${editing?'Edit item':'Add item'}</h3>
+      <form id="invForm">
+        <div class="form-grid">
+          <div class="field"><label>Item Name</label><input type="text" name="name" required value="${editing?editing.name:''}"></div>
+          <div class="field"><label>Category</label>${selectHtml('category',cats.category,editing?editing.category:'')}</div>
+          <div class="field"><label>Unit</label><input type="text" name="unit" placeholder="kg, pcs..." value="${editing?editing.unit:''}"></div>
+          <div class="field"><label>Current Stock</label><input type="number" step="0.01" name="currentStock" value="${editing?editing.currentStock:''}"></div>
+          <div class="field"><label>Reorder Level</label><input type="number" step="0.01" name="reorderLevel" value="${editing?editing.reorderLevel:''}"></div>
+          <div class="field"><label>Full Stock Level (Par)</label><input type="number" step="0.01" name="fullStock" value="${editing?editing.fullStock:''}"></div>
+          <div class="field"><label>Notes</label><input type="text" name="notes" value="${editing?(editing.notes||''):''}"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn">${editing?'Save changes':'Add item'}</button>
+          ${editing?'<button type="button" class="btn secondary" id="cancelEdit">Cancel</button>':''}
+        </div>
+      </form>
+    </div>
+    <div class="section table-wrap">
+      ${itemsHeaderHtml('inventory','Search item, category, notes...',[{value:'asc',label:'Name A→Z'},{value:'desc',label:'Name Z→A'}])}
+      <div id="inventoryTableContainer"></div>
+    </div>
+  `;
+  document.getElementById('invForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const errors = validateFields(e.target, [
+      {name:'name', label:'Item Name', test:v=>!!v.trim(), message:'Item name is required'},
+      {name:'currentStock', label:'Current Stock', test:v=>v==='' || Number(v)>=0, message:'Current stock cannot be negative'},
+      {name:'reorderLevel', label:'Reorder Level', test:v=>v==='' || Number(v)>=0, message:'Reorder level cannot be negative'},
+    ]);
+    showFormError(e.target, errors);
+    if(errors.length) return;
+    const f = new FormData(e.target);
+    const row = { id:editing?editing.id:uid(), name:f.get('name'), category:f.get('category'), unit:f.get('unit'),
+      currentStock:Number(f.get('currentStock'))||0, reorderLevel:Number(f.get('reorderLevel'))||0, fullStock:Number(f.get('fullStock'))||0,
+      lastPurchaseDate: editing?editing.lastPurchaseDate:'', lastPurchaseCost: editing?editing.lastPurchaseCost:0, notes:f.get('notes') };
+    if(editing){ state.inventory[state.inventory.findIndex(r=>r.id===editing.id)] = row; }
+    else state.inventory.push(row);
+    editingId=null; save(); renderAll();
+  };
+  wireControls(main, 'inventory', renderInventoryTable);
+  renderInventoryTable();
+}
+function renderInventoryTable(){
+  const container = document.getElementById('inventoryTableContainer');
+  if(!container) return;
+  let rows = filterRows(state.inventory, tableState.inventory.filter, ['name','category','unit','notes']);
+  rows = sortByField(rows, 'name', tableState.inventory.sortDir);
+  const {pageRows, totalPages, total, page} = paginateRows(rows, 'inventory');
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th>Current</th><th>Reorder</th><th>Full</th><th>Stock %</th><th>Status</th><th>Notes</th><th></th></tr></thead>
+      <tbody>
+        ${pageRows.map(r=>{
+          const st = invStatus(r);
+          return `<tr>
+            <td>${r.name}</td><td>${r.category||''}</td><td>${r.unit||''}</td>
+            <td>${r.currentStock}</td><td>${r.reorderLevel}</td><td>${r.fullStock}</td>
+            <td>${r.fullStock?Math.round(st.pct*100)+'%':''}</td>
+            <td>${st.label?`<span class="status-pill status-${st.label}">${st.label}</span>`:''}</td>
+            <td>${r.notes||''}</td>
+            <td class="actions"><button class="edit" data-id="${r.id}">Edit</button><button class="del" data-id="${r.id}">Delete</button></td>
+          </tr>`;
+        }).join('') || `<tr><td colspan="10" class="empty-note">No items found.</td></tr>`}
+      </tbody>
+    </table>
+    ${paginationRowHtml('inventory', totalPages, total, page, tableState.inventory.pageSize)}
+  `;
+  wireTableActions(container, 'inventory');
+  wirePaginationOnly(container, 'inventory', renderInventoryTable);
+}
+
+/* =========================================================
+   COMPLIMENTARY
+   ========================================================= */
+function renderComplimentary(main){
+  const editing = state.complimentary.find(r=>r.id===editingId);
+  main.innerHTML = `
+    <h2 class="page-title"><i class="fa-solid fa-gift"></i> Complimentary</h2>
+    <div class="page-sub">Item master for give-away items — feeds the dropdown & auto-cost in Daily Sales.</div>
+    <div class="section">
+      <h3>${editing?'Edit item':'Add item'}</h3>
+      <form id="compForm">
+        <div class="form-grid">
+          <div class="field"><label>Item Name</label><input type="text" name="name" required value="${editing?editing.name:''}"></div>
+          <div class="field"><label>Price</label><input type="number" step="0.01" name="price" value="${editing?editing.price:''}"></div>
+          <div class="field"><label>Cost</label><input type="number" step="0.01" name="cost" value="${editing?editing.cost:''}"></div>
+          <div class="field"><label>Active</label>${selectHtml('active',['Y','N'],editing?editing.active:'Y')}</div>
+          <div class="field"><label>Notes</label><input type="text" name="notes" value="${editing?(editing.notes||''):''}"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn">${editing?'Save changes':'Add item'}</button>
+          ${editing?'<button type="button" class="btn secondary" id="cancelEdit">Cancel</button>':''}
+        </div>
+      </form>
+    </div>
+    <div class="section table-wrap">
+      ${itemsHeaderHtml('complimentary','Search item, notes...',[{value:'asc',label:'Name A→Z'},{value:'desc',label:'Name Z→A'}])}
+      <div id="complimentaryTableContainer"></div>
+    </div>
+  `;
+  document.getElementById('compForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const errors = validateFields(e.target, [
+      {name:'name', label:'Item Name', test:v=>!!v.trim(), message:'Item name is required'},
+    ]);
+    showFormError(e.target, errors);
+    if(errors.length) return;
+    const f = new FormData(e.target);
+    const newName = f.get('name');
+    const row = { id:editing?editing.id:uid(), name:newName, price:Number(f.get('price'))||0, cost:Number(f.get('cost'))||0,
+      active:f.get('active'), notes:f.get('notes') };
+    if(editing){
+      state.complimentary[state.complimentary.findIndex(r=>r.id===editing.id)] = row;
+      if(editing.name !== newName){
+        state.dailySales.forEach(s=>{ if(s.compItem === editing.name) s.compItem = newName; });
+      }
+    }
+    else state.complimentary.push(row);
+    editingId=null; save(); renderAll();
+  };
+  wireControls(main, 'complimentary', renderComplimentaryTable);
+  renderComplimentaryTable();
+}
+function renderComplimentaryTable(){
+  const container = document.getElementById('complimentaryTableContainer');
+  if(!container) return;
+  let rows = filterRows(state.complimentary, tableState.complimentary.filter, ['name','notes']);
+  rows = sortByField(rows, 'name', tableState.complimentary.sortDir);
+  const {pageRows, totalPages, total, page} = paginateRows(rows, 'complimentary');
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Item</th><th>Price</th><th>Cost</th><th>Active</th><th>Notes</th><th></th></tr></thead>
+      <tbody>
+        ${pageRows.map(r=>`
+          <tr><td>${r.name}</td><td>${fmtMoney(r.price)}</td><td>${fmtMoney(r.cost)}</td><td>${r.active}</td><td>${r.notes||''}</td>
+          <td class="actions"><button class="edit" data-id="${r.id}">Edit</button><button class="del" data-id="${r.id}">Delete</button></td></tr>
+        `).join('') || `<tr><td colspan="6" class="empty-note">No items found.</td></tr>`}
+      </tbody>
+    </table>
+    ${paginationRowHtml('complimentary', totalPages, total, page, tableState.complimentary.pageSize)}
+  `;
+  wireTableActions(container, 'complimentary');
+  wirePaginationOnly(container, 'complimentary', renderComplimentaryTable);
+}
+
+/* =========================================================
+   MENU ITEMS
+   ========================================================= */
+function renderMenu(main){
+  const editing = state.menuItems.find(r=>r.id===editingId);
+  main.innerHTML = `
+    <h2 class="page-title"><i class="fa-solid fa-bowl-food"></i> Menu Items</h2>
+    <div class="page-sub">Your dish/item master list — feeds the Item Name dropdown & auto-price in Daily Sales.</div>
+    <div class="section">
+      <h3>${editing?'Edit item':'Add item'}</h3>
+      <form id="menuForm">
+        <div class="form-grid">
+          <div class="field"><label>Item Name</label><input type="text" name="name" required value="${editing?editing.name:''}"></div>
+          <div class="field"><label>Price</label><input type="number" step="0.01" min="0" name="price" value="${editing?editing.price:''}"></div>
+          <div class="field"><label>Cost (ingredients)</label><input type="number" step="0.01" min="0" name="cost" placeholder="for profit-per-item" value="${editing?(editing.cost||''):''}"></div>
+          <div class="field"><label>Quantity</label><input type="number" step="0.01" min="0" name="quantity" value="${editing?(editing.quantity!==undefined?editing.quantity:1):1}"></div>
+          <div class="field"><label>Unit</label>${selectHtml('unit',state.categories.unit,editing?editing.unit:'Pcs')}</div>
+          <div class="field"><label>Unit Value</label><input type="number" step="0.01" min="0" name="unitValue" placeholder="e.g. 500" value="${editing?(editing.unitValue||''):''}"></div>
+          <div class="field"><label>Active</label>${selectHtml('active',['Y','N'],editing?editing.active:'Y')}</div>
+          <div class="field"><label>Notes</label><input type="text" name="notes" value="${editing?(editing.notes||''):''}"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn">${editing?'Save changes':'Add item'}</button>
+          ${editing?'<button type="button" class="btn secondary" id="cancelEdit">Cancel</button>':''}
+        </div>
+      </form>
+    </div>
+    <div class="section table-wrap">
+      ${itemsHeaderHtml('menu','Search item, notes...',[{value:'asc',label:'Name A→Z'},{value:'desc',label:'Name Z→A'}])}
+      <div id="menuTableContainer"></div>
+    </div>
+  `;
+  document.getElementById('menuForm').onsubmit = (e)=>{
+    e.preventDefault();
+    const errors = validateFields(e.target, [
+      {name:'name', label:'Item Name', test:v=>!!v.trim(), message:'Item name is required'},
+      {name:'price', label:'Price', test:v=>v==='' || Number(v)>=0, message:'Price cannot be negative'},
+    ]);
+    showFormError(e.target, errors);
+    if(errors.length) return;
+    const f = new FormData(e.target);
+    const newName = f.get('name');
+    const row = { id:editing?editing.id:uid(), name:newName, price:Number(f.get('price'))||0,
+      quantity:Number(f.get('quantity'))||0, unit:f.get('unit'), unitValue:Number(f.get('unitValue'))||0,
+      active:f.get('active'), notes:f.get('notes'), cost:Number(f.get('cost'))||0 };
+    if(editing){
+      state.menuItems[state.menuItems.findIndex(r=>r.id===editing.id)] = row;
+      if(editing.name !== newName){
+        state.dailySales.forEach(s=>{ if(s.item === editing.name) s.item = newName; });
+      }
+    }
+    else state.menuItems.push(row);
+    editingId=null; save(); renderAll();
+  };
+  wireControls(main, 'menu', renderMenuTable);
+  renderMenuTable();
+}
+function renderMenuTable(){
+  const container = document.getElementById('menuTableContainer');
+  if(!container) return;
+  let rows = filterRows(state.menuItems, tableState.menu.filter, ['name','notes']);
+  rows = sortByField(rows, 'name', tableState.menu.sortDir);
+  const {pageRows, totalPages, total, page} = paginateRows(rows, 'menu');
+
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Item</th><th>Price</th><th>Cost</th><th>Profit / Item</th><th>Quantity</th><th>Unit</th><th>Unit Value</th><th>Active</th><th>Notes</th><th></th></tr></thead>
+      <tbody>
+        ${pageRows.map(r=>{
+          const price = Number(r.price)||0, cost = Number(r.cost)||0;
+          const profit = price - cost;
+          const margin = price ? (profit/price*100) : 0;
+          const profitCell = r.cost ? `<span style="color:${profit<0?'var(--tomato)':'var(--sage)'};font-weight:600;">${fmtMoney(profit)} (${margin.toFixed(0)}%)</span>` : '';
+          return `<tr><td>${r.name}</td><td>${fmtMoney(r.price)}</td><td>${r.cost?fmtMoney(r.cost):''}</td><td>${profitCell}</td><td>${r.quantity!==undefined?r.quantity:''}</td><td>${r.unit||''}</td><td>${r.unitValue||''}</td><td>${r.active}</td><td>${r.notes||''}</td>
+          <td class="actions"><button class="edit" data-id="${r.id}">Edit</button><button class="del" data-id="${r.id}">Delete</button></td></tr>`;
+        }).join('') || `<tr><td colspan="10" class="empty-note">No items found.</td></tr>`}
+      </tbody>
+    </table>
+    ${paginationRowHtml('menu', totalPages, total, page, tableState.menu.pageSize)}
+  `;
+  wireTableActions(container, 'menuItems');
+  wirePaginationOnly(container, 'menu', renderMenuTable);
+}
+
+/* =========================================================
+   CATEGORIES
+   ========================================================= */
+const CAT_LABELS = { category:'Expense / Inventory Category', paymentMethod:'Payment Method', orderType:'Order Type', reason:'Complimentary Reason', unit:'Menu Item Unit', vendor:'Vendor' };
+function renderCategories(main){
+  main.innerHTML = `
+    <h2 class="page-title"><i class="fa-solid fa-gear"></i> Categories</h2>
+    <div class="page-sub">Every dropdown list in the app lives here — add or remove options anytime.</div>
+    <div class="section">
+      <div class="cat-columns" id="catColumns"></div>
+    </div>
+  `;
+  const wrap = document.getElementById('catColumns');
+  Object.keys(CAT_LABELS).forEach(key=>{
+    const div = document.createElement('div');
+    div.className = 'cat-list';
+    div.innerHTML = `<h4>${CAT_LABELS[key]}</h4>
+      <ul>${state.categories[key].map(v=>`<li>${v}<button data-key="${key}" data-val="${v}">Remove</button></li>`).join('')}</ul>
+      <div class="cat-add"><input type="text" placeholder="Add option..." data-addkey="${key}"><button data-addbtn="${key}">Add</button></div>`;
+    wrap.appendChild(div);
+  });
+  wrap.querySelectorAll('button[data-key]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const key = btn.dataset.key, val = btn.dataset.val;
+      state.categories[key] = state.categories[key].filter(v=>v!==val);
+      save(); renderAll();
+    };
+  });
+  wrap.querySelectorAll('button[data-addbtn]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const key = btn.dataset.addbtn;
+      const input = wrap.querySelector(`input[data-addkey="${key}"]`);
+      const val = input.value.trim();
+      if(val && !state.categories[key].includes(val)){
+        state.categories[key].push(val);
+        save(); renderAll();
+      }
+    };
+  });
+}
+
+/* =========================================================
+   EXCEL REPORT EXPORT (self-contained — no external library,
+   uses the Excel 2003 "SpreadsheetML" XML format that Excel
+   opens natively, so nothing ever leaves the browser)
+   ========================================================= */
+function xmlEscape(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                   .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+function xCell(value){
+  if(value===null || value===undefined || value==='') return `<Cell><Data ss:Type="String"></Data></Cell>`;
+  if(typeof value==='number' && !isNaN(value)) return `<Cell><Data ss:Type="Number">${value}</Data></Cell>`;
+  return `<Cell><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
+}
+function xRow(cells, bold){
+  const style = bold ? ' ss:StyleID="hdr"' : '';
+  return `<Row${style}>${cells.map(xCell).join('')}</Row>`;
+}
+function xSheet(name, headerRow, dataRows){
+  let xml = `<Worksheet ss:Name="${xmlEscape(name)}"><Table>`;
+  xml += xRow(headerRow, true);
+  dataRows.forEach(r => xml += xRow(r));
+  xml += `</Table></Worksheet>`;
+  return xml;
+}
+function buildExcelReport(){
+  const stats = computeDashboardStats();
+  const topCustomers = computeTopCustomers(10);
+  const topItems = computeTopItems(10);
+  const trendWeekly = computeSalesTrend('weekly');
+
+  const dashRows = [
+    ['Report Period', stats.start + '  to  ' + stats.end],
+    [],
+    ['REVENUE'],
+    ...Object.entries(stats.revByChannel).map(([ch,v])=>[ch+' Revenue', Number(v.toFixed(2))]),
+    ['Item Revenue', Number(stats.itemRev.toFixed(2))],
+    ['Delivery Fee Revenue', Number(stats.deliveryFeeRev.toFixed(2))],
+    ['Total Revenue', Number(stats.totalRev.toFixed(2))],
+    ['Unique Orders', stats.orderIds.size],
+    ['Total Tips', Number(stats.totalTips.toFixed(2))],
+    [],
+    ['REVENUE BY PAYMENT METHOD'],
+    ...Object.entries(stats.revByPayment).map(([pm,v])=>[pm, Number(v.toFixed(2))]),
+    [],
+    ['EXPENSES'],
+    ['Total Expenses', Number(stats.totalExp.toFixed(2))],
+    ['-- By Category --'],
+    ...Object.entries(stats.expByCat).map(([k,v])=>[k, Number(v.toFixed(2))]),
+    [],
+    ['COMPLIMENTARY'],
+    ['Complimentary Count', stats.compCount],
+    ['Complimentary Cost', Number(stats.compCostTotal.toFixed(2))],
+    ['Cost % of Revenue', (stats.compPct*100).toFixed(1)+'%'],
+    ['-- By Item (times given) --'],
+    ...Object.entries(stats.compByItem).map(([k,v])=>[k, v]),
+    ['-- By Reason (cost) --'],
+    ...Object.entries(stats.compByReason).map(([k,v])=>[k, Number(v.toFixed(2))]),
+    [],
+    ['DISCOUNTS'],
+    ['Discount Count', stats.discCount],
+    ['Discount Total', Number(stats.discTotal.toFixed(2))],
+    ['Discount % of Gross', (stats.discPct*100).toFixed(1)+'%'],
+    [],
+    ['INVENTORY'],
+    ['Low Stock Items', stats.lowStockItems.length],
+    ...stats.lowStockItems.map(i=>['  - '+i.name, i.currentStock]),
+    [],
+    ['NET PROFIT'],
+    ['Total Revenue', Number(stats.totalRev.toFixed(2))],
+    ['Total Cost', Number(stats.totalCost.toFixed(2))],
+    ['Total Profit', Number(stats.totalProfit.toFixed(2))],
+    ['Total Expenses', Number(stats.totalExp.toFixed(2))],
+    ['Complimentary Cost', Number(stats.compCostTotal.toFixed(2))],
+    ['Net Profit', Number(stats.netProfit.toFixed(2))],
+    ['Gross Profit', Number(stats.grossProfit.toFixed(2))],
+    [],
+    ['SALES TREND (Weekly, last 3)'],
+    ...Object.entries(trendWeekly).map(([k,v])=>[k, Number(v.toFixed(2))]),
+    [],
+    ['TOP CUSTOMERS'],
+    ['Customer','Orders','Qty','Revenue'],
+    ...topCustomers.map(c=>[c.name, c.orders, c.qty, Number(c.revenue.toFixed(2))]),
+    [],
+    ['TOP ITEMS'],
+    ['Item','Qty Sold','Revenue'],
+    ...topItems.map(i=>[i.item, i.qty, Number(i.revenue.toFixed(2))]),
+  ];
+  const dashboardSheet = xSheet('Dashboard', ['Metric','Value'], dashRows);
+
+  const salesHeaders = ['Date','Day','Order ID','Customer Name','Item','Qty','Unit Price','Item Total',
+    'Disc. Type','Disc. Value','Disc. Amount','Delivery Fee','Net Total','Order Type','Payment Method','Tip',
+    'Complimentary','Comp. Item','Comp. Cost','Comp. Reason','Notes'];
+  const salesRows = state.dailySales.slice().sort((a,b)=>a.date<b.date?-1:1).map(r=>[
+    r.date, dayAbbrev(r.date), r.orderId||'', r.customerName||'', r.item, r.qty, Number(r.price)||0,
+    Number(itemTotal(r).toFixed(2)), r.discountType||'', Number(r.discountValue)||0, Number(discountAmount(r).toFixed(2)),
+    Number(r.deliveryFee)||0, Number(rowRevenue(r).toFixed(2)), r.orderType||'', r.payment||'', Number(r.tip)||0,
+    r.compYN, r.compYN==='Yes'?(r.compItem||''):'', r.compYN==='Yes'?Number(compCost(r).toFixed(2)):'',
+    r.compYN==='Yes'?(r.reason||''):'', r.notes||''
+  ]);
+  const salesSheet = xSheet('Daily Sales', salesHeaders, salesRows);
+
+  const expHeaders = ['Date','Day','Category','Description','Vendor','Payment Method','Amount','Damage/Loss','Notes'];
+  const expRows = state.expenses.slice().sort((a,b)=>a.date<b.date?-1:1).map(r=>[
+    r.date, dayAbbrev(r.date), r.category||'', r.description||'', r.vendor||'', r.payment||'', Number(r.amount)||0, r.isDamage?'Yes':'No', r.notes||''
+  ]);
+  const expSheet = xSheet('Expenses', expHeaders, expRows);
+
+  const invHeaders = ['Item','Category','Unit','Current Stock','Reorder Level','Full Stock Level','Stock %','Status','Last Purchase Date','Last Purchase Cost','Notes'];
+  const invRows = state.inventory.map(r=>{
+    const st = invStatus(r);
+    return [r.name, r.category||'', r.unit||'', Number(r.currentStock)||0, Number(r.reorderLevel)||0,
+      Number(r.fullStock)||0, r.fullStock ? Math.round(st.pct*100)+'%' : '', st.label,
+      r.lastPurchaseDate||'', Number(r.lastPurchaseCost)||0, r.notes||''];
+  });
+  const invSheet = xSheet('Inventory', invHeaders, invRows);
+
+  const compHeaders = ['Item','Price','Cost','Active','Notes'];
+  const compRows2 = state.complimentary.map(r=>[r.name, Number(r.price)||0, Number(r.cost)||0, r.active, r.notes||'']);
+  const compSheet = xSheet('Complimentary', compHeaders, compRows2);
+
+  const menuHeaders = ['Item','Price','Cost','Profit / Item','Quantity','Unit','Unit Value','Active','Notes'];
+  const menuRows = state.menuItems.map(r=>{
+    const price = Number(r.price)||0, cost = Number(r.cost)||0;
+    return [r.name, price, cost, Number((price-cost).toFixed(2)), Number(r.quantity)||0, r.unit||'', Number(r.unitValue)||0, r.active, r.notes||''];
+  });
+  const menuSheet = xSheet('Menu Items', menuHeaders, menuRows);
+
+  const maxLen = Math.max(...Object.values(state.categories).map(a=>a.length));
+  const catHeaders = Object.keys(CAT_LABELS).map(k=>CAT_LABELS[k]);
+  const catRows = [];
+  for(let i=0;i<maxLen;i++){
+    catRows.push(Object.keys(CAT_LABELS).map(k => state.categories[k][i] || ''));
+  }
+  const catSheet = xSheet('Categories', catHeaders, catRows);
+
+  const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="hdr"><Font ss:Bold="1"/><Interior ss:Color="#EFE7D8" ss:Pattern="Solid"/></Style>
+ </Styles>
+ ${dashboardSheet}${salesSheet}${expSheet}${invSheet}${compSheet}${menuSheet}${catSheet}
+</Workbook>`;
+  return xml;
+}
+document.getElementById('btnDownloadExcel').onclick = ()=>{
+  const xml = buildExcelReport();
+  const blob = new Blob([xml], {type:'application/vnd.ms-excel'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dar-al-taste-report-${new Date().toISOString().slice(0,10)}.xls`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+/* =========================================================
+   BACKUP / RESTORE
+   ========================================================= */
+const LAST_BACKUP_KEY = STORAGE_KEY + '_lastBackup';
+function getLastBackupDate(){
+  try{ return localStorage.getItem(LAST_BACKUP_KEY); }catch(e){ return null; }
+}
+function setLastBackupDate(iso){
+  try{ localStorage.setItem(LAST_BACKUP_KEY, iso); }catch(e){}
+}
+function daysSince(iso){
+  if(!iso) return null;
+  const then = new Date(iso+'T00:00:00');
+  if(isNaN(then)) return null;
+  const now = new Date();
+  const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.floor((nowMid-then)/86400000);
+}
+function renderBackupBanner(){
+  const el = document.getElementById('backupBanner');
+  if(!el) return;
+  const last = getLastBackupDate();
+  const days = daysSince(last);
+  const stale = days===null || days>=7;
+  let msg;
+  if(!last) msg = 'No backup yet.';
+  else if(days===0) msg = 'Backed up today.';
+  else if(days===1) msg = 'Backup: yesterday.';
+  else msg = `Backup: ${days}d ago.`;
+  el.innerHTML = `<div class="backup-mini ${stale?'stale':''}">
+    <span class="backup-mini-icon">${stale?'<i class="fa-solid fa-triangle-exclamation"></i>':'<i class="fa-solid fa-circle-check"></i>'}</span>
+    <span class="backup-mini-text">${msg}</span>
+    <button type="button" id="bannerBackupBtn"><i class="fa-solid fa-download"></i> Back up now</button>
+  </div>`;
+  document.getElementById('bannerBackupBtn').onclick = ()=> document.getElementById('btnExport').click();
+}
+document.getElementById('btnExport').onclick = ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `dar-al-taste-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setLastBackupDate(new Date().toISOString().slice(0,10));
+  renderBackupBanner();
+};
+document.getElementById('btnImport').onclick = ()=> document.getElementById('fileImport').click();
+document.getElementById('fileImport').onchange = (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(!confirm('This will replace all current data with the backup file. Continue?')) return;
+      state = data;
+      save(); renderAll();
+    }catch(err){
+      alert('Could not read that file — make sure it is a backup exported from this app.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
+
+/* Cancel-edit delegation (buttons are re-created on every render) */
+document.getElementById('main').addEventListener('click', (e)=>{
+  if(e.target && e.target.id==='cancelEdit'){ editingId = null; renderAll(); }
+});
+
+/* =========================================================
+   KEYBOARD SHORTCUTS
+   ========================================================= */
+document.addEventListener('keydown', (e)=>{
+  const tag = (e.target.tagName||'').toLowerCase();
+  const typing = tag==='input' || tag==='select' || tag==='textarea';
+  if(e.key==='/' && !typing){
+    const search = document.querySelector('#main .filter-input');
+    if(search){ e.preventDefault(); search.focus(); }
+  } else if((e.key==='n' || e.key==='N') && !typing){
+    const form = document.querySelector('#main form');
+    if(form){
+      e.preventDefault();
+      const firstField = form.querySelector('input,select');
+      if(firstField) firstField.focus();
+      form.scrollIntoView({behavior:'smooth', block:'start'});
+    }
+  } else if(e.key==='Escape' && typing){
+    if(editingId){ editingId = null; renderAll(); }
+  }
+});
+
+/* =========================================================
+   AUTH + INIT
+   ========================================================= */
+function showLoginScreen(){
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appShell').style.display = 'none';
+}
+function showAppShell(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = '';
+}
+
+async function bootApp(user){
+  currentUser = user;
+  document.getElementById('loginLoading').style.display = 'block';
+  document.getElementById('loginForm').style.display = 'none';
+  try{
+    let cloudData = await fetchStateFromCloud();
+    if(!cloudData){
+      // First time this account has logged in — seed the cloud row.
+      // Uses local cache if present, otherwise the built-in default data.
+      const localFallback = load();
+      cloudData = localFallback;
+      await ensureCloudRowExists(cloudData);
+    }
+    state = migrateState(cloudData, defaultState());
+  }catch(e){
+    console.error(e);
+    // Fall back to local cache so the app still works if the network fails.
+    state = load();
+  }
+  showAppShell();
+  renderAll();
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginSubmitBtn');
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if(error){
+    errEl.textContent = error.message || 'Sign in failed. Check your email and password.';
+    errEl.style.display = 'block';
+    return;
+  }
+  bootApp(data.user);
+});
+
+document.getElementById('btnSignOut').addEventListener('click', async ()=>{
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('loginLoading').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+  showLoginScreen();
+});
+
+(async function initAuth(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if(session && session.user){
+    showLoginScreen(); // keep visible with the loading message while we fetch data
+    bootApp(session.user);
+  } else {
+    showLoginScreen();
+  }
+})();
+</script>
+</body>
+</html>
+
