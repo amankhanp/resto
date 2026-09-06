@@ -284,7 +284,7 @@ th.sortable-th.active-sort{color:#fff;}
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
     <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> Dar Al-Taste</h1>
-    <p class="login-sub">Sign in to your private ledger</p>
+    <p class="login-sub">Sign in to your account</p>
     <form id="loginForm">
       <div class="field"><label>Email</label><input type="email" id="loginEmail" required autocomplete="username"></div>
       <div class="field"><label>Password</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
@@ -295,18 +295,19 @@ th.sortable-th.active-sort{color:#fff;}
   </div>
 </div>
 <div class="mobile-topbar">
-  <span class="brand-mini"><i class="fa-solid fa-utensils"></i> Dar Al-Taste</span>
+  <span class="brand-mini"><i class="fa-solid fa-utensils"></i> <span id="brandTitleMobile">Dar Al-Taste</span></span>
   <button id="btnMobileMenu" aria-label="Open menu">&#9776;</button>
 </div>
 <div class="menu-backdrop" id="menuBackdrop"></div>
 <div class="app" id="appShell" style="display:none;">
   <div class="sidebar" id="sidebar">
     <div class="brand">
-      <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> Dar Al-Taste</h1>
-      <span>Private ledger</span>
+      <h1><span class="brand-icon"><i class="fa-solid fa-utensils"></i></span> <span id="brandTitle">Dar Al-Taste</span></h1>
+      <span id="brandSub">Private ledger</span>
     </div>
     <div id="nav"></div>
     <div class="sidebar-footer">
+      <button id="btnBackToRestaurants" style="display:none;"><i class="fa-solid fa-arrow-left"></i> Back to restaurants</button>
       <button id="btnPrint"><i class="fa-solid fa-print"></i> Print / save PDF</button>
       <button id="btnDownloadExcel"><i class="fa-solid fa-chart-line"></i> Download report (.xls)</button>
       <button id="btnExport"><i class="fa-solid fa-download"></i> Export backup (.json)</button>
@@ -324,18 +325,24 @@ th.sortable-th.active-sort{color:#fff;}
 /* =========================================================
    STATE
    ========================================================= */
-const STORAGE_KEY = 'darAlTasteTracker_v1';
+const STORAGE_KEY_BASE = 'darAlTasteTracker_v1';
+function storageKey(){ return STORAGE_KEY_BASE + '_' + (currentRestaurantId || 'nores'); }
 
 /* =========================================================
    SUPABASE CONFIG
    Replace these two values with your own project's URL and
    anon (public) key — find them in Supabase: Project Settings > API.
    ========================================================= */
-const SUPABASE_URL = 'https://wllmqzmpgjyktzjlldxt.supabase.co';
+const SUPABASE_URL = 'https://wllmqzmpgjyktzjlldxt.supabase.co/rest/v1/';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsbG1xem1wZ2p5a3R6amxsZHh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTc3MTgsImV4cCI6MjEwNDI3MzcxOH0.WT1pyN-B4H0NGIgWjYcC4KBQSdV-yIEIcMOQDeXFcug';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
+let currentRestaurantId = null;
+let currentRestaurantName = '';
+let isOrganizer = false;
+let myRestaurants = [];
+let viewMode = 'loading'; // 'loading' | 'orgHome' | 'ledger' | 'noAccess'
 let saveDebounceTimer = null;
 let cloudSaveInFlight = false;
 let pendingCloudSave = false;
@@ -346,14 +353,14 @@ function setSyncStatus(msg){
 }
 
 async function pushStateToCloud(){
-  if(!currentUser) return;
+  if(!currentUser || !currentRestaurantId) return;
   if(cloudSaveInFlight){ pendingCloudSave = true; return; }
   cloudSaveInFlight = true;
   setSyncStatus('Saving…');
   try{
     const { error } = await supabaseClient
       .from('app_state')
-      .upsert({ user_id: currentUser.id, data: state, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      .upsert({ restaurant_id: currentRestaurantId, data: state, updated_at: new Date().toISOString() }, { onConflict: 'restaurant_id' });
     if(error){ setSyncStatus('Save failed — retrying'); console.error(error); }
     else setSyncStatus('Saved to cloud');
   }catch(e){
@@ -373,7 +380,7 @@ async function fetchStateFromCloud(){
   const { data, error } = await supabaseClient
     .from('app_state')
     .select('data')
-    .eq('user_id', currentUser.id)
+    .eq('restaurant_id', currentRestaurantId)
     .maybeSingle();
   if(error){ console.error(error); return null; }
   return data ? data.data : null;
@@ -382,8 +389,59 @@ async function fetchStateFromCloud(){
 async function ensureCloudRowExists(initialState){
   const { error } = await supabaseClient
     .from('app_state')
-    .upsert({ user_id: currentUser.id, data: initialState, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    .upsert({ restaurant_id: currentRestaurantId, data: initialState, updated_at: new Date().toISOString() }, { onConflict: 'restaurant_id' });
   if(error) console.error(error);
+}
+
+/* =========================================================
+   ORGANIZER / MULTI-RESTAURANT HELPERS
+   ========================================================= */
+async function fetchIsOrganizer(userId){
+  const { data, error } = await supabaseClient
+    .from('profiles')
+    .select('is_organizer')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if(error){ console.error(error); return false; }
+  return !!(data && data.is_organizer);
+}
+
+async function fetchAllRestaurants(){
+  const { data, error } = await supabaseClient
+    .from('restaurants')
+    .select('id, name, created_at')
+    .order('name', { ascending: true });
+  if(error){ console.error(error); return []; }
+  return data || [];
+}
+
+async function fetchMyRestaurantMemberships(userId){
+  const { data, error } = await supabaseClient
+    .from('restaurant_members')
+    .select('restaurant_id, restaurants(id, name)')
+    .eq('user_id', userId);
+  if(error){ console.error(error); return []; }
+  return (data || [])
+    .filter(row => row.restaurants)
+    .map(row => ({ id: row.restaurants.id, name: row.restaurants.name }));
+}
+
+async function createRestaurant(name){
+  const { data, error } = await supabaseClient
+    .from('restaurants')
+    .insert({ name })
+    .select()
+    .single();
+  if(error) throw error;
+  return data;
+}
+
+async function linkOwnerToRestaurant(restaurantId, email){
+  const { error } = await supabaseClient.rpc('link_owner_to_restaurant', {
+    p_restaurant_id: restaurantId,
+    p_email: email
+  });
+  if(error) throw error;
 }
 
 function defaultState(){
@@ -1194,7 +1252,7 @@ let state = defaultState();
 function load(){
   let saved = null;
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     if(raw) saved = JSON.parse(raw);
   }catch(e){}
   const def = defaultState();
@@ -1247,13 +1305,13 @@ function migrateState(saved, def){
     {id:uid(), date:'', category:'', description:'', vendor:'', payment:'', amount:0, isDamage:false, notes:''}, r));
 
   // Persist the repaired shape right away so future loads skip migration
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); }catch(e){}
+  try{ localStorage.setItem(storageKey(), JSON.stringify(merged)); }catch(e){}
 
   return merged;
 }
 
 function save(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  try{ localStorage.setItem(storageKey(), JSON.stringify(state)); }catch(e){}
   queueCloudSave();
 }
 
@@ -1357,7 +1415,48 @@ document.getElementById('menuBackdrop').onclick = closeMobileMenu;
 /* ---- Print / save as PDF ---- */
 document.getElementById('btnPrint').onclick = ()=> window.print();
 
+function setLedgerChromeVisible(visible){
+  const disp = visible ? '' : 'none';
+  ['btnPrint','btnDownloadExcel','btnExport','btnImport'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = disp;
+  });
+  const backEl = document.getElementById('btnBackToRestaurants');
+  if(backEl) backEl.style.display = (isOrganizer && visible) ? '' : 'none';
+  const banner = document.getElementById('backupBanner');
+  if(banner) banner.style.display = visible ? '' : 'none';
+}
+
 function renderAll(){
+  const brandTitle = document.getElementById('brandTitle');
+  const brandSub = document.getElementById('brandSub');
+  const brandTitleMobile = document.getElementById('brandTitleMobile');
+
+  if(viewMode === 'orgHome'){
+    if(brandTitle) brandTitle.textContent = 'Dar Al-Taste';
+    if(brandSub) brandSub.textContent = 'Organizer console';
+    if(brandTitleMobile) brandTitleMobile.textContent = 'Organizer console';
+    document.getElementById('nav').innerHTML = '';
+    setLedgerChromeVisible(false);
+    renderOrgHome(document.getElementById('main'));
+    return;
+  }
+
+  if(viewMode === 'noAccess'){
+    if(brandTitle) brandTitle.textContent = 'Dar Al-Taste';
+    if(brandSub) brandSub.textContent = '';
+    if(brandTitleMobile) brandTitleMobile.textContent = 'Dar Al-Taste';
+    document.getElementById('nav').innerHTML = '';
+    setLedgerChromeVisible(false);
+    renderNoAccess(document.getElementById('main'));
+    return;
+  }
+
+  // viewMode === 'ledger'
+  if(brandTitle) brandTitle.textContent = currentRestaurantName || 'Dar Al-Taste';
+  if(brandSub) brandSub.textContent = isOrganizer ? 'Organizer view' : 'Private ledger';
+  if(brandTitleMobile) brandTitleMobile.textContent = currentRestaurantName || 'Dar Al-Taste';
+  setLedgerChromeVisible(true);
   renderNav();
   const main = document.getElementById('main');
   main.innerHTML = '';
@@ -1370,6 +1469,117 @@ function renderAll(){
   if(activeTab==='categories') renderCategories(main);
   renderBackupBanner();
 }
+
+/* =========================================================
+   ORGANIZER CONSOLE
+   ========================================================= */
+async function refreshOrgRestaurantList(){
+  myRestaurants = await fetchAllRestaurants();
+  renderAll();
+}
+
+function renderOrgHome(main){
+  main.innerHTML = `
+    <h2 class="page-title">Restaurants</h2>
+    <p class="page-sub">Add a restaurant, then link its owner's login by email. You can open any restaurant's ledger yourself at any time.</p>
+
+    <div class="section">
+      <h3><i class="fa-solid fa-plus"></i> Add a restaurant</h3>
+      <form id="orgAddRestaurantForm" class="form-grid" style="align-items:end;">
+        <div class="field" style="grid-column:span 2;">
+          <label>Restaurant name</label>
+          <input type="text" id="orgNewRestaurantName" required placeholder="e.g. Zaika Kitchen">
+        </div>
+        <div class="form-actions"><button type="submit" class="btn">Add restaurant</button></div>
+      </form>
+      <div id="orgAddRestaurantMsg"></div>
+    </div>
+
+    <div class="section">
+      <h3><i class="fa-solid fa-store"></i> All restaurants (${myRestaurants.length})</h3>
+      <div id="orgRestaurantList"></div>
+    </div>
+  `;
+
+  const listEl = document.getElementById('orgRestaurantList');
+  if(myRestaurants.length === 0){
+    listEl.innerHTML = `<p class="page-sub">No restaurants yet — add your first one above.</p>`;
+  } else {
+    listEl.innerHTML = myRestaurants.map(r => `
+      <div class="section" style="margin-bottom:12px;">
+        <div class="sub-h-row">
+          <div class="sub-h">${escapeHtml(r.name)}</div>
+          <button class="btn" data-open-restaurant="${r.id}" data-open-name="${escapeHtml(r.name)}">Open ledger</button>
+        </div>
+        <form class="form-grid" style="align-items:end;margin-bottom:0;" data-link-owner-form="${r.id}">
+          <div class="field" style="grid-column:span 2;">
+            <label>Owner's email (their login must already exist in Supabase)</label>
+            <input type="email" required placeholder="owner@example.com">
+          </div>
+          <div class="form-actions"><button type="submit" class="btn secondary">Link owner</button></div>
+        </form>
+        <div data-link-owner-msg="${r.id}"></div>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('[data-open-restaurant]').forEach(btn=>{
+      btn.onclick = ()=> openRestaurant(btn.getAttribute('data-open-restaurant'), btn.getAttribute('data-open-name'));
+    });
+    listEl.querySelectorAll('[data-link-owner-form]').forEach(form=>{
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const restaurantId = form.getAttribute('data-link-owner-form');
+        const email = form.querySelector('input[type=email]').value.trim();
+        const msgEl = document.querySelector(`[data-link-owner-msg="${restaurantId}"]`);
+        const btn = form.querySelector('button');
+        btn.disabled = true;
+        msgEl.textContent = '';
+        try{
+          await linkOwnerToRestaurant(restaurantId, email);
+          msgEl.innerHTML = `<p class="page-sub" style="color:var(--sage);">Linked ${escapeHtml(email)} to this restaurant.</p>`;
+          form.reset();
+        }catch(err){
+          console.error(err);
+          msgEl.innerHTML = `<p class="page-sub" style="color:var(--tomato);">${escapeHtml(err.message || 'Could not link that owner.')}</p>`;
+        }
+        btn.disabled = false;
+      });
+    });
+  }
+
+  document.getElementById('orgAddRestaurantForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const input = document.getElementById('orgNewRestaurantName');
+    const name = input.value.trim();
+    const msgEl = document.getElementById('orgAddRestaurantMsg');
+    if(!name) return;
+    try{
+      await createRestaurant(name);
+      input.value = '';
+      msgEl.innerHTML = '';
+      await refreshOrgRestaurantList();
+    }catch(err){
+      console.error(err);
+      msgEl.innerHTML = `<p class="page-sub" style="color:var(--tomato);">${escapeHtml(err.message || 'Could not add that restaurant.')}</p>`;
+    }
+  });
+}
+
+function renderNoAccess(main){
+  main.innerHTML = `
+    <h2 class="page-title">No restaurant assigned yet</h2>
+    <p class="page-sub">Your login isn't linked to a restaurant yet. Ask your Organizer to link your email to a restaurant, then sign out and back in.</p>
+  `;
+}
+
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('btnBackToRestaurants').addEventListener('click', async ()=>{
+  viewMode = 'orgHome';
+  await refreshOrgRestaurantList();
+});
 
 /* =========================================================
    TABLE FILTER + SORT + PERIOD + PAGINATION FRAMEWORK
@@ -2748,12 +2958,12 @@ document.getElementById('btnDownloadExcel').onclick = ()=>{
 /* =========================================================
    BACKUP / RESTORE
    ========================================================= */
-const LAST_BACKUP_KEY = STORAGE_KEY + '_lastBackup';
+function lastBackupKey(){ return storageKey() + '_lastBackup'; }
 function getLastBackupDate(){
-  try{ return localStorage.getItem(LAST_BACKUP_KEY); }catch(e){ return null; }
+  try{ return localStorage.getItem(lastBackupKey()); }catch(e){ return null; }
 }
 function setLastBackupDate(iso){
-  try{ localStorage.setItem(LAST_BACKUP_KEY, iso); }catch(e){}
+  try{ localStorage.setItem(lastBackupKey(), iso); }catch(e){}
 }
 function daysSince(iso){
   if(!iso) return null;
@@ -2850,14 +3060,16 @@ function showAppShell(){
   document.getElementById('appShell').style.display = '';
 }
 
-async function bootApp(user){
-  currentUser = user;
+async function openRestaurant(restaurantId, restaurantName){
+  currentRestaurantId = restaurantId;
+  currentRestaurantName = restaurantName || '';
+  viewMode = 'ledger';
+  activeTab = 'dashboard';
   document.getElementById('loginLoading').style.display = 'block';
-  document.getElementById('loginForm').style.display = 'none';
   try{
     let cloudData = await fetchStateFromCloud();
     if(!cloudData){
-      // First time this account has logged in — seed the cloud row.
+      // First time this restaurant has been opened — seed the cloud row.
       // Uses local cache if present, otherwise the built-in default data.
       const localFallback = load();
       cloudData = localFallback;
@@ -2871,6 +3083,51 @@ async function bootApp(user){
   }
   showAppShell();
   renderAll();
+}
+
+async function bootApp(user){
+  currentUser = user;
+  document.getElementById('loginLoading').style.display = 'block';
+  document.getElementById('loginForm').style.display = 'none';
+
+  try{
+    isOrganizer = await fetchIsOrganizer(user.id);
+  }catch(e){
+    console.error(e);
+    isOrganizer = false;
+  }
+
+  if(isOrganizer){
+    try{
+      myRestaurants = await fetchAllRestaurants();
+    }catch(e){
+      console.error(e);
+      myRestaurants = [];
+    }
+    viewMode = 'orgHome';
+    showAppShell();
+    renderAll();
+    return;
+  }
+
+  let memberships = [];
+  try{
+    memberships = await fetchMyRestaurantMemberships(user.id);
+  }catch(e){
+    console.error(e);
+  }
+
+  if(memberships.length === 0){
+    viewMode = 'noAccess';
+    showAppShell();
+    renderAll();
+    return;
+  }
+
+  // An owner is expected to have exactly one restaurant. If they somehow
+  // have more than one, open the first — they can be re-linked by the
+  // Organizer if that's ever wrong.
+  await openRestaurant(memberships[0].id, memberships[0].name);
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
@@ -2894,6 +3151,11 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
 document.getElementById('btnSignOut').addEventListener('click', async ()=>{
   await supabaseClient.auth.signOut();
   currentUser = null;
+  currentRestaurantId = null;
+  currentRestaurantName = '';
+  isOrganizer = false;
+  myRestaurants = [];
+  viewMode = 'loading';
   document.getElementById('loginForm').style.display = '';
   document.getElementById('loginLoading').style.display = 'none';
   document.getElementById('loginEmail').value = '';
