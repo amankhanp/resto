@@ -265,7 +265,7 @@ th.sortable-th.active-sort{color:#fff;}
 /* ---- Print view ---- */
 @media print{
   .sidebar,.mobile-topbar,.menu-backdrop,.section form,.controls-grid,.pagination-row,
-  .actions,th:last-child,td:last-child,#backupBanner,#toastHost,.shortcut-hint{display:none !important;}
+  .actions,th:last-child,td:last-child,#userBadge,#toastHost,.shortcut-hint{display:none !important;}
   .app{display:block;}
   .main{padding:0;overflow:visible;}
   body{background:#fff;}
@@ -280,15 +280,12 @@ th.sortable-th.active-sort{color:#fff;}
 .backup-banner.stale{background:var(--tomato-bg);border-color:var(--tomato);color:var(--tomato);}
 .backup-banner button{flex-shrink:0;}
 
-/* ---- Inline backup widget (dashboard, before period dates) ---- */
-.backup-mini{display:flex;align-items:center;gap:7px;background:linear-gradient(180deg,#f3ead7,#ecdfc2);
-  border:1px solid var(--turmeric);color:var(--turmeric-deep);border-radius:7px;padding:8px 10px;
-  font-size:11.5px;white-space:nowrap;height:32px;box-shadow:0 1px 2px rgba(0,0,0,.05);}
-.backup-mini.stale{background:linear-gradient(180deg,#fbe0dc,#f6cac4);border-color:var(--tomato);color:var(--tomato);}
-.backup-mini-icon{font-size:13px;line-height:1;}
-.backup-mini button{background:var(--ink);color:#f5d98a;border:none;border-radius:5px;padding:5px 10px;
-  font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;transition:transform .1s ease, background .15s ease;}
-.backup-mini button:hover{background:#000;transform:translateY(-1px);}
+/* ---- Logged-in user badge (dashboard, before period dates) ---- */
+.user-badge{display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,#f3ead7,#ecdfc2);
+  border:1px solid var(--turmeric);color:var(--turmeric-deep);border-radius:7px;padding:8px 12px;
+  font-size:12.5px;font-weight:600;white-space:nowrap;height:32px;box-shadow:0 1px 2px rgba(0,0,0,.05);}
+.user-badge-avatar{display:flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border-radius:50%;background:var(--ink);color:#f5d98a;font-size:11px;font-weight:700;flex-shrink:0;}
 
 /* ---- Undo toast ---- */
 #toastHost{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;align-items:center;}
@@ -819,7 +816,7 @@ function setLedgerChromeVisible(visible){
   });
   const backEl = document.getElementById('btnBackToRestaurants');
   if(backEl) backEl.style.display = (isOrganizer && visible) ? '' : 'none';
-  const banner = document.getElementById('backupBanner');
+  const banner = document.getElementById('userBadge');
   if(banner) banner.style.display = visible ? '' : 'none';
 }
 
@@ -869,7 +866,7 @@ function renderAll(){
   if(activeTab==='complimentary') renderComplimentary(main);
   if(activeTab==='menu') renderMenu(main);
   if(activeTab==='categories') renderCategories(main);
-  renderBackupBanner();
+  renderUserBadge();
 }
 
 /* =========================================================
@@ -1702,7 +1699,7 @@ function renderDashboard(main){
         <div class="page-sub">Home-made food business — revenue, expenses & complimentary tracking</div>
       </div>
       <div class="period-compact">
-        <div id="backupBanner"></div>
+        <div id="userBadge"></div>
         <div class="field"><label>Start date</label><input type="date" id="periodStart" value="${start}"></div>
         <div class="field"><label>End date</label><input type="date" id="periodEnd" value="${end}"></div>
         <button class="btn secondary" id="applyPeriod">Apply</button>
@@ -2598,23 +2595,21 @@ function daysSince(iso){
   const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.floor((nowMid-then)/86400000);
 }
-function renderBackupBanner(){
-  const el = document.getElementById('backupBanner');
+function getUserDisplayName(){
+  if(!currentUser || !currentUser.email) return '';
+  const local = String(currentUser.email).split('@')[0];
+  if(!local) return '';
+  return local.charAt(0).toUpperCase() + local.slice(1).toLowerCase();
+}
+function renderUserBadge(){
+  const el = document.getElementById('userBadge');
   if(!el) return;
-  const last = getLastBackupDate();
-  const days = daysSince(last);
-  const stale = days===null || days>=7;
-  let msg;
-  if(!last) msg = 'No backup yet.';
-  else if(days===0) msg = 'Backed up today.';
-  else if(days===1) msg = 'Backup: yesterday.';
-  else msg = `Backup: ${days}d ago.`;
-  el.innerHTML = `<div class="backup-mini ${stale?'stale':''}">
-    <span class="backup-mini-icon">${stale?'<i class="fa-solid fa-triangle-exclamation"></i>':'<i class="fa-solid fa-circle-check"></i>'}</span>
-    <span class="backup-mini-text">${msg}</span>
-    <button type="button" id="bannerBackupBtn"><i class="fa-solid fa-download"></i> Back up now</button>
+  const name = getUserDisplayName();
+  if(!name){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="user-badge">
+    <span class="user-badge-avatar">${escapeHtml(name.charAt(0))}</span>
+    <span>${escapeHtml(name)}</span>
   </div>`;
-  document.getElementById('bannerBackupBtn').onclick = ()=> document.getElementById('btnExport').click();
 }
 document.getElementById('btnExport').onclick = ()=>{
   const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
@@ -2625,7 +2620,6 @@ document.getElementById('btnExport').onclick = ()=>{
   a.click();
   URL.revokeObjectURL(url);
   setLastBackupDate(new Date().toISOString().slice(0,10));
-  renderBackupBanner();
 };
 document.getElementById('btnImport').onclick = ()=> document.getElementById('fileImport').click();
 document.getElementById('fileImport').onchange = (e)=>{
