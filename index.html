@@ -342,6 +342,7 @@ let currentRestaurantId = null;
 let currentRestaurantName = '';
 let isOrganizer = false;
 let myRestaurants = [];
+let currentEnabledTabs = null; // array of TABS[].key strings the current owner is allowed to see; null/organizer = all
 let viewMode = 'loading'; // 'loading' | 'orgHome' | 'ledger' | 'noAccess'
 let saveDebounceTimer = null;
 let cloudSaveInFlight = false;
@@ -409,7 +410,7 @@ async function fetchIsOrganizer(userId){
 async function fetchAllRestaurants(){
   const { data, error } = await supabaseClient
     .from('restaurants')
-    .select('id, name, created_at')
+    .select('id, name, created_at, enabled_tabs')
     .order('name', { ascending: true });
   if(error){ console.error(error); return []; }
   return data || [];
@@ -418,12 +419,12 @@ async function fetchAllRestaurants(){
 async function fetchMyRestaurantMemberships(userId){
   const { data, error } = await supabaseClient
     .from('restaurant_members')
-    .select('restaurant_id, restaurants(id, name)')
+    .select('restaurant_id, restaurants(id, name, enabled_tabs)')
     .eq('user_id', userId);
   if(error){ console.error(error); return []; }
   return (data || [])
     .filter(row => row.restaurants)
-    .map(row => ({ id: row.restaurants.id, name: row.restaurants.name }));
+    .map(row => ({ id: row.restaurants.id, name: row.restaurants.name, enabledTabs: row.restaurants.enabled_tabs }));
 }
 
 async function createRestaurant(name){
@@ -434,6 +435,14 @@ async function createRestaurant(name){
     .single();
   if(error) throw error;
   return data;
+}
+
+async function updateRestaurant(restaurantId, { name, enabledTabs }){
+  const { error } = await supabaseClient
+    .from('restaurants')
+    .update({ name, enabled_tabs: enabledTabs })
+    .eq('id', restaurantId);
+  if(error) throw error;
 }
 
 async function linkOwnerToRestaurant(restaurantId, email){
@@ -639,6 +648,16 @@ const TABS = [
   {key:'menu', label:'Menu Items', icon:'<i class="fa-solid fa-bowl-food"></i>'},
   {key:'categories', label:'Categories', icon:'<i class="fa-solid fa-gear"></i>'},
 ];
+function getAllowedTabKeys(){
+  // The Organizer always sees every tab, even inside a restaurant that
+  // has some tabs turned off for its owner -- restrictions only apply
+  // to the restaurant's own owner login.
+  if(isOrganizer) return TABS.map(t=>t.key);
+  if(Array.isArray(currentEnabledTabs) && currentEnabledTabs.length){
+    return TABS.map(t=>t.key).filter(k => currentEnabledTabs.includes(k));
+  }
+  return TABS.map(t=>t.key);
+}
 let activeTab = 'dashboard';
 let editingId = null;
 let salesTrendGranularity = 'weekly';
@@ -646,7 +665,8 @@ let salesTrendGranularity = 'weekly';
 function renderNav(){
   const nav = document.getElementById('nav');
   nav.innerHTML = '';
-  TABS.forEach(t=>{
+  const allowed = getAllowedTabKeys();
+  TABS.filter(t=>allowed.includes(t.key)).forEach(t=>{
     const el = document.createElement('div');
     el.className = 'nav-item' + (t.key===activeTab ? ' active' : '');
     el.innerHTML = `<span class="nav-icon">${t.icon}</span>${t.label}`;
@@ -711,9 +731,15 @@ function renderAll(){
   if(brandSub) brandSub.textContent = isOrganizer ? 'Organizer view' : 'Private ledger';
   if(brandTitleMobile) brandTitleMobile.textContent = currentRestaurantName || 'Restro';
   setLedgerChromeVisible(true);
+  const allowedTabs = getAllowedTabKeys();
+  if(!allowedTabs.includes(activeTab)) activeTab = allowedTabs[0] || 'dashboard';
   renderNav();
   const main = document.getElementById('main');
   main.innerHTML = '';
+  if(allowedTabs.length === 0){
+    main.innerHTML = `<h2 class="page-title">Nothing to show yet</h2><p class="page-sub">The Organizer hasn't enabled any sections for this restaurant yet.</p>`;
+    return;
+  }
   if(activeTab==='dashboard') renderDashboard(main);
   if(activeTab==='sales') renderSales(main);
   if(activeTab==='expenses') renderExpenses(main);
@@ -759,11 +785,20 @@ function renderOrgHome(main){
   if(myRestaurants.length === 0){
     listEl.innerHTML = `<p class="page-sub">No restaurants yet — add your first one above.</p>`;
   } else {
-    listEl.innerHTML = myRestaurants.map(r => `
+    listEl.innerHTML = myRestaurants.map(r => {
+      const enabled = Array.isArray(r.enabled_tabs) && r.enabled_tabs.length ? r.enabled_tabs : TABS.map(t=>t.key);
+      const tabCheckboxes = TABS.map(t => `
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+          <input type="checkbox" value="${t.key}" ${enabled.includes(t.key) ? 'checked' : ''}> ${t.label}
+        </label>
+      `).join('');
+      return `
       <div class="section" style="margin-bottom:12px;">
         <div class="sub-h-row">
           <div class="sub-h">${escapeHtml(r.name)}</div>
-          <button class="btn" data-open-restaurant="${r.id}" data-open-name="${escapeHtml(r.name)}">Open ledger</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" data-open-restaurant="${r.id}" data-open-name="${escapeHtml(r.name)}">Open ledger</button>
+          </div>
         </div>
         <form class="form-grid" style="align-items:end;margin-bottom:0;" data-link-owner-form="${r.id}">
           <div class="field" style="grid-column:span 2;">
@@ -773,11 +808,31 @@ function renderOrgHome(main){
           <div class="form-actions"><button type="submit" class="btn secondary">Link owner</button></div>
         </form>
         <div data-link-owner-msg="${r.id}"></div>
+
+        <details style="margin-top:14px;">
+          <summary style="cursor:pointer;font-weight:600;">Edit restaurant</summary>
+          <form data-edit-restaurant-form="${r.id}" style="margin-top:12px;">
+            <div class="field" style="margin-bottom:12px;">
+              <label>Restaurant name</label>
+              <input type="text" name="name" value="${escapeHtml(r.name)}" required>
+            </div>
+            <div class="field" style="margin-bottom:12px;">
+              <label>Sections this restaurant's owner can see</label>
+              <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">${tabCheckboxes}</div>
+            </div>
+            <div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
+            <div data-edit-restaurant-msg="${r.id}"></div>
+          </form>
+        </details>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     listEl.querySelectorAll('[data-open-restaurant]').forEach(btn=>{
-      btn.onclick = ()=> openRestaurant(btn.getAttribute('data-open-restaurant'), btn.getAttribute('data-open-name'));
+      btn.onclick = ()=> {
+        const r = myRestaurants.find(x => String(x.id) === btn.getAttribute('data-open-restaurant'));
+        openRestaurant(btn.getAttribute('data-open-restaurant'), btn.getAttribute('data-open-name'), r ? r.enabled_tabs : null);
+      };
     });
     listEl.querySelectorAll('[data-link-owner-form]').forEach(form=>{
       form.addEventListener('submit', async (e)=>{
@@ -795,6 +850,31 @@ function renderOrgHome(main){
         }catch(err){
           console.error(err);
           msgEl.innerHTML = `<p class="page-sub" style="color:var(--tomato);">${escapeHtml(err.message || 'Could not link that owner.')}</p>`;
+        }
+        btn.disabled = false;
+      });
+    });
+    listEl.querySelectorAll('[data-edit-restaurant-form]').forEach(form=>{
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const restaurantId = form.getAttribute('data-edit-restaurant-form');
+        const name = form.querySelector('input[name=name]').value.trim();
+        const enabledTabs = Array.from(form.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value);
+        const msgEl = document.querySelector(`[data-edit-restaurant-msg="${restaurantId}"]`);
+        const btn = form.querySelector('button[type=submit]');
+        if(!name){ return; }
+        btn.disabled = true;
+        msgEl.textContent = '';
+        try{
+          await updateRestaurant(restaurantId, { name, enabledTabs });
+          if(currentRestaurantId === restaurantId){
+            currentRestaurantName = name;
+            currentEnabledTabs = enabledTabs;
+          }
+          await refreshOrgRestaurantList();
+        }catch(err){
+          console.error(err);
+          msgEl.innerHTML = `<p class="page-sub" style="color:var(--tomato);">${escapeHtml(err.message || 'Could not save changes.')}</p>`;
         }
         btn.disabled = false;
       });
@@ -832,6 +912,9 @@ function escapeHtml(str){
 
 document.getElementById('btnBackToRestaurants').addEventListener('click', async ()=>{
   viewMode = 'orgHome';
+  currentRestaurantId = null;
+  currentRestaurantName = '';
+  currentEnabledTabs = null;
   await refreshOrgRestaurantList();
 });
 
@@ -2317,9 +2400,10 @@ function showAppShell(){
   document.getElementById('appShell').style.display = '';
 }
 
-async function openRestaurant(restaurantId, restaurantName){
+async function openRestaurant(restaurantId, restaurantName, enabledTabs){
   currentRestaurantId = restaurantId;
   currentRestaurantName = restaurantName || '';
+  currentEnabledTabs = Array.isArray(enabledTabs) ? enabledTabs : null;
   viewMode = 'ledger';
   activeTab = 'dashboard';
   document.getElementById('loginLoading').style.display = 'block';
@@ -2384,7 +2468,7 @@ async function bootApp(user){
   // An owner is expected to have exactly one restaurant. If they somehow
   // have more than one, open the first — they can be re-linked by the
   // Organizer if that's ever wrong.
-  await openRestaurant(memberships[0].id, memberships[0].name);
+  await openRestaurant(memberships[0].id, memberships[0].name, memberships[0].enabledTabs);
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
@@ -2410,6 +2494,7 @@ document.getElementById('btnSignOut').addEventListener('click', async ()=>{
   currentUser = null;
   currentRestaurantId = null;
   currentRestaurantName = '';
+  currentEnabledTabs = null;
   isOrganizer = false;
   myRestaurants = [];
   viewMode = 'loading';
