@@ -187,7 +187,60 @@ th.sortable-th.active-sort{color:#fff;}
 .pagination-row .page-size-select{padding:6px 8px;border:1px solid var(--paper-line);border-radius:5px;font-size:12px;}
 .pagination-row .btn{padding:6px 12px;font-size:12px;}
 
-/* ---- Mobile top bar / hamburger ---- */
+/* ---- Organizer console ---- */
+.org-intro{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
+.org-intro .page-title,.org-intro .page-sub{margin-bottom:0;}
+.org-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;align-items:start;}
+.org-card{background:var(--card);border:1px solid var(--paper-line);border-radius:12px;padding:18px 20px;
+  box-shadow:0 1px 4px rgba(28,27,25,.05);}
+.org-card-top{display:flex;align-items:center;gap:12px;}
+.org-avatar{width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:Georgia,serif;font-size:17px;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,var(--turmeric),var(--turmeric-deep));}
+.org-card-name{font-family:Georgia,serif;font-size:17px;font-weight:700;line-height:1.25;}
+.org-card-meta{margin-top:2px;}
+.status-LINKED{background:var(--sage-bg);color:var(--sage);}
+.status-UNLINKED{background:var(--tomato-bg);color:var(--tomato);}
+.org-card-actions{display:flex;gap:8px;margin-top:16px;}
+.org-card-actions .btn{flex:1;}
+.org-toggle-edit{width:100%;margin-top:10px;background:none;border:1px dashed var(--paper-line);border-radius:8px;
+  color:var(--ink-soft);font-size:12.5px;font-weight:600;padding:8px 10px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:6px;transition:background .12s ease,color .12s ease;}
+.org-toggle-edit:hover{background:var(--paper);color:var(--ink);}
+.org-toggle-edit i{transition:transform .15s ease;}
+.org-toggle-edit.open i{transform:rotate(180deg);}
+.org-panel{margin-top:14px;padding-top:14px;border-top:1px solid var(--paper-line);}
+.org-panel[hidden]{display:none;}
+.org-panel-group{margin-bottom:16px;}
+.org-panel-group:last-child{margin-bottom:0;}
+.org-panel-group h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:0 0 8px 0;}
+.switch-row{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:13px;}
+.switch{position:relative;display:inline-block;width:34px;height:20px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .slider{position:absolute;inset:0;background:#d8d0bd;border-radius:20px;cursor:pointer;transition:background .15s ease;}
+.switch .slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;
+  box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s ease;}
+.switch input:checked + .slider{background:var(--sage);}
+.switch input:checked + .slider::before{transform:translateX(14px);}
+.switch input:disabled + .slider{background:#e8e0d0;cursor:not-allowed;}
+.switch input:focus-visible + .slider{outline:2px solid var(--focus);outline-offset:2px;}
+.switch-label-text{display:flex;flex-direction:column;}
+.switch-label-text .note{font-size:10.5px;color:var(--ink-soft);}
+.org-add-card{background:transparent;border:1.5px dashed var(--paper-line);border-radius:12px;padding:18px 20px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px;
+  color:var(--ink-soft);cursor:pointer;transition:background .12s ease,border-color .12s ease,color .12s ease;}
+.org-add-card:hover{background:var(--card);border-color:var(--turmeric);color:var(--turmeric-deep);}
+.org-add-card i{font-size:20px;}
+.org-add-form{background:var(--card);border:1px solid var(--paper-line);border-radius:12px;padding:18px 20px;
+  box-shadow:0 1px 4px rgba(28,27,25,.05);}
+.org-linkform{display:flex;gap:8px;margin-top:10px;}
+.org-linkform input{flex:1;padding:7px 8px;border:1px solid var(--paper-line);border-radius:5px;font-size:12.5px;}
+.org-linkform button{white-space:nowrap;}
+.org-msg{font-size:12px;margin-top:6px;}
+.org-msg.ok{color:var(--sage);}
+.org-msg.err{color:var(--tomato);}
+
+
 .mobile-topbar{display:none;}
 .menu-backdrop{display:none;}
 @media(max-width:820px){
@@ -411,7 +464,7 @@ async function fetchIsOrganizer(userId){
 async function fetchAllRestaurants(){
   const { data, error } = await supabaseClient
     .from('restaurants')
-    .select('id, name, created_at, enabled_tabs, dashboard_config')
+    .select('id, name, created_at, enabled_tabs, dashboard_config, restaurant_members(count)')
     .order('name', { ascending: true });
   if(error){ console.error(error); return []; }
   return data || [];
@@ -681,22 +734,22 @@ function getAllowedTabKeys(){
    something this owner can see or manage anyway.
    ========================================================= */
 const WIDGET_REGISTRY = [
-  {key:'itemRevenue', label:'Item Revenue (KPI card)'},
-  {key:'deliveryFeeRevenue', label:'Delivery Fee Revenue (KPI card)'},
-  {key:'totalTips', label:'Total Tips (KPI card)'},
-  {key:'uniqueOrders', label:'Unique Orders (KPI card)'},
-  {key:'complimentaryCostKpi', label:'Complimentary Cost (KPI card)', dependsOnTab:'complimentary'},
-  {key:'damagesKpi', label:'Damages / Losses (KPI card)', dependsOnTab:'expenses'},
-  {key:'netProfitSection', label:'Net Profit section'},
-  {key:'complimentaryDiscountsSection', label:'Complimentary & Discounts section', dependsOnTab:'complimentary'},
-  {key:'revenueTrend', label:'Revenue trend chart', dependsOnTab:'sales'},
-  {key:'revenueByPayment', label:'Revenue by payment method', dependsOnTab:'sales'},
-  {key:'revenueByDow', label:'Revenue by day of week', dependsOnTab:'sales'},
-  {key:'expensesByCategory', label:'Expenses by category', dependsOnTab:'expenses'},
-  {key:'profitPerItem', label:'Profit per item', dependsOnTab:'menu'},
-  {key:'topCustomers', label:'Top customers', dependsOnTab:'sales'},
-  {key:'topItems', label:'Top items', dependsOnTab:'sales'},
-  {key:'lowStockItems', label:'Low stock items', dependsOnTab:'inventory'},
+  {key:'itemRevenue', label:'Item Revenue', group:'KPI cards'},
+  {key:'deliveryFeeRevenue', label:'Delivery Fee Revenue', group:'KPI cards'},
+  {key:'totalTips', label:'Total Tips', group:'KPI cards'},
+  {key:'uniqueOrders', label:'Unique Orders', group:'KPI cards'},
+  {key:'complimentaryCostKpi', label:'Complimentary Cost', dependsOnTab:'complimentary', group:'KPI cards'},
+  {key:'damagesKpi', label:'Damages / Losses', dependsOnTab:'expenses', group:'KPI cards'},
+  {key:'netProfitSection', label:'Net Profit section', group:'Sections & charts'},
+  {key:'complimentaryDiscountsSection', label:'Complimentary & Discounts section', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'revenueTrend', label:'Revenue trend chart', dependsOnTab:'sales', group:'Sections & charts'},
+  {key:'revenueByPayment', label:'Revenue by payment method', dependsOnTab:'sales', group:'Sections & charts'},
+  {key:'revenueByDow', label:'Revenue by day of week', dependsOnTab:'sales', group:'Sections & charts'},
+  {key:'expensesByCategory', label:'Expenses by category', dependsOnTab:'expenses', group:'Sections & charts'},
+  {key:'profitPerItem', label:'Profit per item', dependsOnTab:'menu', group:'Sections & charts'},
+  {key:'topCustomers', label:'Top customers', dependsOnTab:'sales', group:'Leaderboards'},
+  {key:'topItems', label:'Top items', dependsOnTab:'sales', group:'Leaderboards'},
+  {key:'lowStockItems', label:'Low stock items', dependsOnTab:'inventory', group:'Leaderboards'},
 ];
 
 function defaultDashboardConfig(){ return { hiddenWidgets: [], hiddenChannels: [] }; }
@@ -838,189 +891,115 @@ function applyDashboardDependencies(form){
 
 function renderOrgHome(main){
   main.innerHTML = `
-    <h2 class="page-title">Restaurants</h2>
-    <p class="page-sub">Add a restaurant, then link its owner's login by email. You can open any restaurant's ledger yourself at any time.</p>
+    <div class="org-intro">
+      <div>
+        <h2 class="page-title">Restaurants</h2>
+        <p class="page-sub">Add a restaurant, link its owner by email, and customize what each one sees.</p>
+      </div>
+    </div>
+    <div class="org-grid" id="orgGrid"></div>
+  `;
 
-    <div class="section">
-      <h3><i class="fa-solid fa-plus"></i> Add a restaurant</h3>
-      <form id="orgAddRestaurantForm" class="form-grid" style="align-items:end;">
-        <div class="field" style="grid-column:span 2;">
+  const gridEl = document.getElementById('orgGrid');
+
+  function addTileHtml(){
+    return `
+      <div class="org-add-card" id="orgAddTile" tabindex="0" role="button">
+        <i class="fa-solid fa-circle-plus"></i>
+        <span>Add a restaurant</span>
+      </div>
+      <form class="org-add-form" id="orgAddRestaurantForm" style="display:none;">
+        <div class="field" style="margin-bottom:10px;">
           <label>Restaurant name</label>
           <input type="text" id="orgNewRestaurantName" required placeholder="e.g. Zaika Kitchen">
         </div>
-        <div class="form-actions"><button type="submit" class="btn">Add restaurant</button></div>
+        <div class="form-actions">
+          <button type="submit" class="btn">Add restaurant</button>
+          <button type="button" class="btn secondary" id="orgAddCancel">Cancel</button>
+        </div>
+        <div id="orgAddRestaurantMsg" class="org-msg"></div>
       </form>
-      <div id="orgAddRestaurantMsg"></div>
-    </div>
+    `;
+  }
 
-    <div class="section">
-      <h3><i class="fa-solid fa-store"></i> All restaurants (${myRestaurants.length})</h3>
-      <div id="orgRestaurantList"></div>
-    </div>
-  `;
+  function restaurantCardHtml(r){
+    const enabled = Array.isArray(r.enabled_tabs) && r.enabled_tabs.length ? r.enabled_tabs : TABS.map(t=>t.key);
+    const dashCfg = r.dashboard_config || defaultDashboardConfig();
+    const hiddenWidgets = dashCfg.hiddenWidgets || [];
+    const memberCount = (r.restaurant_members && r.restaurant_members[0] && r.restaurant_members[0].count) || 0;
+    const initial = (r.name || '?').trim().charAt(0).toUpperCase() || '?';
 
-  const listEl = document.getElementById('orgRestaurantList');
-  if(myRestaurants.length === 0){
-    listEl.innerHTML = `<p class="page-sub">No restaurants yet — add your first one above.</p>`;
-  } else {
-    listEl.innerHTML = myRestaurants.map(r => {
-      const enabled = Array.isArray(r.enabled_tabs) && r.enabled_tabs.length ? r.enabled_tabs : TABS.map(t=>t.key);
-      const dashCfg = r.dashboard_config || defaultDashboardConfig();
-      const hiddenWidgets = dashCfg.hiddenWidgets || [];
-      const tabCheckboxes = TABS.map(t => `
-        <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-          <input type="checkbox" data-tab-checkbox="${t.key}" value="${t.key}" ${enabled.includes(t.key) ? 'checked' : ''}> ${t.label}
+    const tabSwitches = TABS.map(t => `
+      <label class="switch-row">
+        <span class="switch"><input type="checkbox" data-tab-checkbox="${t.key}" value="${t.key}" ${enabled.includes(t.key) ? 'checked' : ''}><span class="slider"></span></span>
+        <span class="switch-label-text"><span>${t.label}</span></span>
+      </label>
+    `).join('');
+
+    const widgetGroups = ['KPI cards','Sections & charts','Leaderboards'].map(groupName => {
+      const rows = WIDGET_REGISTRY.filter(w=>w.group===groupName).map(w => `
+        <label class="switch-row" data-widget-row="${w.key}">
+          <span class="switch"><input type="checkbox" data-widget-checkbox="${w.key}" data-depends-tab="${w.dependsOnTab||''}" value="${w.key}" ${!hiddenWidgets.includes(w.key) ? 'checked' : ''}><span class="slider"></span></span>
+          <span class="switch-label-text"><span>${w.label}</span><span class="note" data-widget-note="${w.key}" style="display:none;"></span></span>
         </label>
       `).join('');
-      const widgetCheckboxes = WIDGET_REGISTRY.map(w => `
-        <label style="display:flex;align-items:center;gap:6px;font-weight:400;" data-widget-row="${w.key}">
-          <input type="checkbox" data-widget-checkbox="${w.key}" data-depends-tab="${w.dependsOnTab||''}" value="${w.key}" ${!hiddenWidgets.includes(w.key) ? 'checked' : ''}>
-          <span>${w.label}</span>
-          <span data-widget-note="${w.key}" class="inline-note" style="display:none;"></span>
-        </label>
-      `).join('');
-      return `
-      <div class="section" style="margin-bottom:12px;">
-        <div class="sub-h-row">
-          <div class="sub-h">${escapeHtml(r.name)}</div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn" data-open-restaurant="${r.id}" data-open-name="${escapeHtml(r.name)}">Open ledger</button>
+      return `<div class="org-panel-group"><h4>${groupName}</h4>${rows}</div>`;
+    }).join('');
+
+    return `
+      <div class="org-card">
+        <div class="org-card-top">
+          <div class="org-avatar">${escapeHtml(initial)}</div>
+          <div>
+            <div class="org-card-name">${escapeHtml(r.name)}</div>
+            <div class="org-card-meta"><span class="status-pill ${memberCount>0?'status-LINKED':'status-UNLINKED'}">${memberCount>0?'Owner linked':'No owner yet'}</span></div>
           </div>
         </div>
-        <form class="form-grid" style="align-items:end;margin-bottom:0;" data-link-owner-form="${r.id}">
-          <div class="field" style="grid-column:span 2;">
-            <label>Owner's email (their login must already exist in Supabase)</label>
-            <input type="email" required placeholder="owner@example.com">
-          </div>
-          <div class="form-actions"><button type="submit" class="btn secondary">Link owner</button></div>
+        <div class="org-card-actions">
+          <button class="btn" data-open-restaurant="${r.id}" data-open-name="${escapeHtml(r.name)}">Open ledger</button>
+        </div>
+        <form class="org-linkform" data-link-owner-form="${r.id}">
+          <input type="email" required placeholder="owner@example.com">
+          <button type="submit" class="btn secondary">Link owner</button>
         </form>
-        <div data-link-owner-msg="${r.id}"></div>
+        <div data-link-owner-msg="${r.id}" class="org-msg"></div>
 
-        <details data-restaurant-details="${r.id}" style="margin-top:14px;">
-          <summary style="cursor:pointer;font-weight:600;">Edit restaurant</summary>
-          <form data-edit-restaurant-form="${r.id}" data-hidden-channels='${JSON.stringify(dashCfg.hiddenChannels||[])}' style="margin-top:12px;">
-            <div class="field" style="margin-bottom:12px;">
+        <button type="button" class="org-toggle-edit" data-toggle-panel="${r.id}"><span>Customize</span><i class="fa-solid fa-chevron-down"></i></button>
+        <div class="org-panel" id="orgPanel-${r.id}" hidden>
+          <form data-edit-restaurant-form="${r.id}" data-hidden-channels='${JSON.stringify(dashCfg.hiddenChannels||[])}'>
+            <div class="field" style="margin-bottom:14px;">
               <label>Restaurant name</label>
               <input type="text" name="name" value="${escapeHtml(r.name)}" required>
             </div>
-            <div class="field" style="margin-bottom:12px;">
-              <label>Sections this restaurant's owner can see</label>
-              <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">${tabCheckboxes}</div>
+            <div class="org-panel-group">
+              <h4>Access</h4>
+              ${tabSwitches}
             </div>
-            <div class="field" style="margin-bottom:12px;">
-              <label>Revenue-by-channel cards on the Dashboard</label>
-              <div data-channel-checkboxes="${r.id}" style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
+            <div class="org-panel-group">
+              <h4>Revenue-by-channel cards</h4>
+              <div data-channel-checkboxes="${r.id}">
                 <span class="page-sub">Loading this restaurant's order types…</span>
               </div>
             </div>
-            <div class="field" style="margin-bottom:12px;">
-              <label>Other Dashboard widgets</label>
-              <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">${widgetCheckboxes}</div>
+            ${widgetGroups}
+            <div class="form-actions" style="margin-top:4px;">
+              <button type="submit" class="btn">Save changes</button>
             </div>
-            <div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
-            <div data-edit-restaurant-msg="${r.id}"></div>
+            <div data-edit-restaurant-msg="${r.id}" class="org-msg"></div>
           </form>
-        </details>
+        </div>
       </div>
     `;
-    }).join('');
-
-    listEl.querySelectorAll('[data-open-restaurant]').forEach(btn=>{
-      btn.onclick = ()=> {
-        const r = myRestaurants.find(x => String(x.id) === btn.getAttribute('data-open-restaurant'));
-        openRestaurant(btn.getAttribute('data-open-restaurant'), btn.getAttribute('data-open-name'), r ? r.enabled_tabs : null, r ? r.dashboard_config : null);
-      };
-    });
-    listEl.querySelectorAll('[data-link-owner-form]').forEach(form=>{
-      form.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const restaurantId = form.getAttribute('data-link-owner-form');
-        const email = form.querySelector('input[type=email]').value.trim();
-        const msgEl = document.querySelector(`[data-link-owner-msg="${restaurantId}"]`);
-        const btn = form.querySelector('button');
-        btn.disabled = true;
-        msgEl.textContent = '';
-        try{
-          await linkOwnerToRestaurant(restaurantId, email);
-          msgEl.innerHTML = `<p class="page-sub" style="color:var(--sage);">Linked ${escapeHtml(email)} to this restaurant.</p>`;
-          form.reset();
-        }catch(err){
-          console.error(err);
-          msgEl.innerHTML = `<p class="page-sub" style="color:var(--tomato);">${escapeHtml(err.message || 'Could not link that owner.')}</p>`;
-        }
-        btn.disabled = false;
-      });
-    });
-
-    // Lazily load each restaurant's real order-type names the first time
-    // its edit panel is opened, and wire up the tab <-> widget dependency
-    // graying (e.g. turning off Inventory disables Low stock items).
-    listEl.querySelectorAll('[data-restaurant-details]').forEach(details=>{
-      const restaurantId = details.getAttribute('data-restaurant-details');
-      let loaded = false;
-      details.addEventListener('toggle', async ()=>{
-        if(!details.open || loaded) return;
-        loaded = true;
-        const container = details.querySelector(`[data-channel-checkboxes="${restaurantId}"]`);
-        const form = details.querySelector(`[data-edit-restaurant-form="${restaurantId}"]`);
-        let hiddenChannels = [];
-        try{ hiddenChannels = JSON.parse(form.getAttribute('data-hidden-channels') || '[]'); }catch(e){}
-        const orderTypes = await fetchRestaurantOrderTypes(restaurantId);
-        container.innerHTML = orderTypes.map(ch => `
-          <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-            <input type="checkbox" data-channel-checkbox value="${escapeHtml(ch)}" ${!hiddenChannels.some(h=>h.toLowerCase()===ch.toLowerCase()) ? 'checked' : ''}> ${escapeHtml(ch)} Revenue
-          </label>
-        `).join('') || `<span class="page-sub">No order types configured yet.</span>`;
-        applyDashboardDependencies(form);
-      });
-    });
-
-    listEl.querySelectorAll('[data-edit-restaurant-form]').forEach(form=>{
-      applyDashboardDependencies(form);
-      form.querySelectorAll('[data-tab-checkbox]').forEach(cb=>{
-        cb.addEventListener('change', ()=> applyDashboardDependencies(form));
-      });
-      form.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const restaurantId = form.getAttribute('data-edit-restaurant-form');
-        const name = form.querySelector('input[name=name]').value.trim();
-        const enabledTabs = Array.from(form.querySelectorAll('[data-tab-checkbox]:checked')).map(cb=>cb.value);
-        const hiddenWidgets = Array.from(form.querySelectorAll('[data-widget-checkbox]'))
-          .filter(cb => !cb.checked)
-          .map(cb => cb.value);
-        const channelCbs = Array.from(form.querySelectorAll('[data-channel-checkbox]'));
-        let hiddenChannels;
-        if(channelCbs.length){
-          hiddenChannels = channelCbs.filter(cb=>!cb.checked).map(cb=>cb.value);
-        } else {
-          // Channel list never got loaded (edit panel wasn't expanded) --
-          // keep whatever was already saved instead of wiping it out.
-          try{ hiddenChannels = JSON.parse(form.getAttribute('data-hidden-channels') || '[]'); }catch(err){ hiddenChannels = []; }
-        }
-        const msgEl = document.querySelector(`[data-edit-restaurant-msg="${restaurantId}"]`);
-        const btn = form.querySelector('button[type=submit]');
-        if(!name){ return; }
-        btn.disabled = true;
-        msgEl.textContent = '';
-        try{
-          const dashboardConfig = { hiddenWidgets, hiddenChannels };
-          await updateRestaurant(restaurantId, { name, enabledTabs, dashboardConfig });
-          if(currentRestaurantId === restaurantId){
-            currentRestaurantName = name;
-            currentEnabledTabs = enabledTabs;
-            currentDashboardConfig = dashboardConfig;
-          }
-          await refreshOrgRestaurantList();
-        }catch(err){
-          console.error(err);
-          msgEl.innerHTML = `<p class="page-sub" style="color:var(--tomato);">${escapeHtml(err.message || 'Could not save changes.')}</p>`;
-        }
-        btn.disabled = false;
-      });
-    });
   }
 
-  document.getElementById('orgAddRestaurantForm').addEventListener('submit', async (e)=>{
+  gridEl.innerHTML = addTileHtml() + myRestaurants.map(restaurantCardHtml).join('');
+
+  const addTile = document.getElementById('orgAddTile');
+  const addForm = document.getElementById('orgAddRestaurantForm');
+  addTile.addEventListener('click', ()=>{ addTile.style.display='none'; addForm.style.display=''; document.getElementById('orgNewRestaurantName').focus(); });
+  addTile.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); addTile.click(); } });
+  document.getElementById('orgAddCancel').addEventListener('click', ()=>{ addForm.style.display='none'; addTile.style.display=''; });
+  addForm.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const input = document.getElementById('orgNewRestaurantName');
     const name = input.value.trim();
@@ -1028,15 +1007,122 @@ function renderOrgHome(main){
     if(!name) return;
     try{
       await createRestaurant(name);
-      input.value = '';
-      msgEl.innerHTML = '';
       await refreshOrgRestaurantList();
     }catch(err){
       console.error(err);
-      msgEl.innerHTML = `<p class="page-sub" style="color:var(--tomato);">${escapeHtml(err.message || 'Could not add that restaurant.')}</p>`;
+      msgEl.className = 'org-msg err';
+      msgEl.textContent = err.message || 'Could not add that restaurant.';
     }
   });
+
+  if(myRestaurants.length === 0){
+    return;
+  }
+
+  gridEl.querySelectorAll('[data-open-restaurant]').forEach(btn=>{
+    btn.onclick = ()=> {
+      const r = myRestaurants.find(x => String(x.id) === btn.getAttribute('data-open-restaurant'));
+      openRestaurant(btn.getAttribute('data-open-restaurant'), btn.getAttribute('data-open-name'), r ? r.enabled_tabs : null, r ? r.dashboard_config : null);
+    };
+  });
+
+  gridEl.querySelectorAll('[data-link-owner-form]').forEach(form=>{
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const restaurantId = form.getAttribute('data-link-owner-form');
+      const email = form.querySelector('input[type=email]').value.trim();
+      const msgEl = document.querySelector(`[data-link-owner-msg="${restaurantId}"]`);
+      const btn = form.querySelector('button');
+      btn.disabled = true;
+      msgEl.textContent = '';
+      msgEl.className = 'org-msg';
+      try{
+        await linkOwnerToRestaurant(restaurantId, email);
+        msgEl.classList.add('ok');
+        msgEl.textContent = `Linked ${email} to this restaurant.`;
+        form.reset();
+        setTimeout(refreshOrgRestaurantList, 900);
+      }catch(err){
+        console.error(err);
+        msgEl.classList.add('err');
+        msgEl.textContent = err.message || 'Could not link that owner.';
+      }
+      btn.disabled = false;
+    });
+  });
+
+  gridEl.querySelectorAll('[data-toggle-panel]').forEach(toggleBtn=>{
+    const restaurantId = toggleBtn.getAttribute('data-toggle-panel');
+    const panel = document.getElementById(`orgPanel-${restaurantId}`);
+    let loaded = false;
+    toggleBtn.addEventListener('click', async ()=>{
+      const willOpen = panel.hasAttribute('hidden');
+      panel.hidden = !willOpen;
+      toggleBtn.classList.toggle('open', willOpen);
+      if(!willOpen || loaded) return;
+      loaded = true;
+      const container = panel.querySelector(`[data-channel-checkboxes="${restaurantId}"]`);
+      const form = panel.querySelector(`[data-edit-restaurant-form="${restaurantId}"]`);
+      let hiddenChannels = [];
+      try{ hiddenChannels = JSON.parse(form.getAttribute('data-hidden-channels') || '[]'); }catch(e){}
+      const orderTypes = await fetchRestaurantOrderTypes(restaurantId);
+      container.innerHTML = orderTypes.map(ch => `
+        <label class="switch-row">
+          <span class="switch"><input type="checkbox" data-channel-checkbox value="${escapeHtml(ch)}" ${!hiddenChannels.some(h=>h.toLowerCase()===ch.toLowerCase()) ? 'checked' : ''}><span class="slider"></span></span>
+          <span class="switch-label-text"><span>${escapeHtml(ch)} Revenue</span></span>
+        </label>
+      `).join('') || `<span class="page-sub">No order types configured yet.</span>`;
+      applyDashboardDependencies(form);
+    });
+  });
+
+  gridEl.querySelectorAll('[data-edit-restaurant-form]').forEach(form=>{
+    applyDashboardDependencies(form);
+    form.querySelectorAll('[data-tab-checkbox]').forEach(cb=>{
+      cb.addEventListener('change', ()=> applyDashboardDependencies(form));
+    });
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const restaurantId = form.getAttribute('data-edit-restaurant-form');
+      const name = form.querySelector('input[name=name]').value.trim();
+      const enabledTabs = Array.from(form.querySelectorAll('[data-tab-checkbox]:checked')).map(cb=>cb.value);
+      const hiddenWidgets = Array.from(form.querySelectorAll('[data-widget-checkbox]'))
+        .filter(cb => !cb.checked)
+        .map(cb => cb.value);
+      const channelCbs = Array.from(form.querySelectorAll('[data-channel-checkbox]'));
+      let hiddenChannels;
+      if(channelCbs.length){
+        hiddenChannels = channelCbs.filter(cb=>!cb.checked).map(cb=>cb.value);
+      } else {
+        try{ hiddenChannels = JSON.parse(form.getAttribute('data-hidden-channels') || '[]'); }catch(err){ hiddenChannels = []; }
+      }
+      const msgEl = document.querySelector(`[data-edit-restaurant-msg="${restaurantId}"]`);
+      const btn = form.querySelector('button[type=submit]');
+      if(!name){ return; }
+      btn.disabled = true;
+      msgEl.textContent = '';
+      msgEl.className = 'org-msg';
+      try{
+        const dashboardConfig = { hiddenWidgets, hiddenChannels };
+        await updateRestaurant(restaurantId, { name, enabledTabs, dashboardConfig });
+        if(currentRestaurantId === restaurantId){
+          currentRestaurantName = name;
+          currentEnabledTabs = enabledTabs;
+          currentDashboardConfig = dashboardConfig;
+        }
+        msgEl.classList.add('ok');
+        msgEl.textContent = 'Saved.';
+        setTimeout(refreshOrgRestaurantList, 700);
+      }catch(err){
+        console.error(err);
+        msgEl.classList.add('err');
+        msgEl.textContent = err.message || 'Could not save changes.';
+      }
+      btn.disabled = false;
+    });
+  });
 }
+
 
 function renderNoAccess(main){
   main.innerHTML = `
