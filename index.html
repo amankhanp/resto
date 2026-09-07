@@ -740,29 +740,25 @@ const WIDGET_REGISTRY = [
   {key:'uniqueOrders', label:'Unique Orders', group:'KPI cards'},
   {key:'complimentaryCostKpi', label:'Complimentary Cost', dependsOnTab:'complimentary', group:'KPI cards'},
   {key:'damagesKpi', label:'Damages / Losses', dependsOnTab:'expenses', group:'KPI cards'},
-
-  {key:'netProfit_totalRevenue', label:'Total Revenue', group:'Net profit'},
-  {key:'netProfit_totalCost', label:'Total Cost', group:'Net profit'},
-  {key:'netProfit_totalProfit', label:'Total Profit', group:'Net profit'},
-  {key:'netProfit_totalExpenses', label:'Total Expenses', dependsOnTab:'expenses', group:'Net profit'},
-  {key:'netProfit_netProfit', label:'Net Profit', group:'Net profit'},
-  {key:'netProfit_grossProfit', label:'Gross Profit', group:'Net profit'},
-
-  {key:'compDisc_complimentaryCount', label:'Complimentary Count', dependsOnTab:'complimentary', group:'Complimentary & Discounts'},
-  {key:'compDisc_complimentaryCost', label:'Complimentary Cost (card)', dependsOnTab:'complimentary', group:'Complimentary & Discounts'},
-  {key:'compDisc_compCostPct', label:'Comp. Cost % of Revenue', dependsOnTab:'complimentary', group:'Complimentary & Discounts'},
-  {key:'compDisc_discountCount', label:'Discount Count', dependsOnTab:'sales', group:'Complimentary & Discounts'},
-  {key:'compDisc_discountTotal', label:'Discount Total', dependsOnTab:'sales', group:'Complimentary & Discounts'},
-  {key:'compDisc_discountPct', label:'Discount % of Gross', dependsOnTab:'sales', group:'Complimentary & Discounts'},
-  {key:'compDisc_byItemChart', label:'Complimentary by item (chart)', dependsOnTab:'complimentary', group:'Complimentary & Discounts'},
-  {key:'compDisc_byReasonChart', label:'Complimentary by reason (chart)', dependsOnTab:'complimentary', group:'Complimentary & Discounts'},
-
-  {key:'revenueTrend', label:'Revenue trend chart', dependsOnTab:'sales', group:'Charts & breakdowns'},
-  {key:'revenueByPayment', label:'Revenue by payment method', dependsOnTab:'sales', group:'Charts & breakdowns'},
-  {key:'revenueByDow', label:'Revenue by day of week', dependsOnTab:'sales', group:'Charts & breakdowns'},
-  {key:'expensesByCategory', label:'Expenses by category', dependsOnTab:'expenses', group:'Charts & breakdowns'},
-  {key:'profitPerItem', label:'Profit per item', dependsOnTab:'menu', group:'Charts & breakdowns'},
-
+  {key:'netProfitTotalRevenue', label:'Net Profit: Total Revenue', group:'Sections & charts'},
+  {key:'netProfitTotalCost', label:'Net Profit: Total Cost', group:'Sections & charts'},
+  {key:'netProfitTotalProfit', label:'Net Profit: Total Profit', group:'Sections & charts'},
+  {key:'netProfitTotalExpenses', label:'Net Profit: Total Expenses', group:'Sections & charts'},
+  {key:'netProfitNetProfitCard', label:'Net Profit: Net Profit (bottom line)', group:'Sections & charts'},
+  {key:'netProfitGrossProfit', label:'Net Profit: Gross Profit', group:'Sections & charts'},
+  {key:'compDiscCount', label:'Complimentary & Discounts: Complimentary Count', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'compDiscCost', label:'Complimentary & Discounts: Complimentary Cost', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'compDiscCostPct', label:'Complimentary & Discounts: Comp. Cost % of Revenue', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'compDiscDiscCount', label:'Complimentary & Discounts: Discount Count', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'compDiscDiscTotal', label:'Complimentary & Discounts: Discount Total', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'compDiscDiscPct', label:'Complimentary & Discounts: Discount % of Gross', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'compDiscByItemChart', label:'Complimentary & Discounts: Complimentary by item chart', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'compDiscByReasonChart', label:'Complimentary & Discounts: Complimentary by reason chart', dependsOnTab:'complimentary', group:'Sections & charts'},
+  {key:'revenueTrend', label:'Revenue trend chart', dependsOnTab:'sales', group:'Sections & charts'},
+  {key:'revenueByPayment', label:'Revenue by payment method', dependsOnTab:'sales', group:'Sections & charts'},
+  {key:'revenueByDow', label:'Revenue by day of week', dependsOnTab:'sales', group:'Sections & charts'},
+  {key:'expensesByCategory', label:'Expenses by category', dependsOnTab:'expenses', group:'Sections & charts'},
+  {key:'profitPerItem', label:'Profit per item', dependsOnTab:'menu', group:'Sections & charts'},
   {key:'topCustomers', label:'Top customers', dependsOnTab:'sales', group:'Leaderboards'},
   {key:'topItems', label:'Top items', dependsOnTab:'sales', group:'Leaderboards'},
   {key:'lowStockItems', label:'Low stock items', dependsOnTab:'inventory', group:'Leaderboards'},
@@ -1664,8 +1660,22 @@ function renderDashboard(main){
   const profitByItem = computeProfitByItem(5);
   const noDataAtAll = !state.dailySales.length && !state.expenses.length;
 
-  const showNetProfitSection = isWidgetVisible('netProfitSection');
-  const showComplimentaryDiscountsSection = isWidgetVisible('complimentaryDiscountsSection');
+  const showNPTotalRevenue = isWidgetVisible('netProfitTotalRevenue');
+  const showNPTotalCost = isWidgetVisible('netProfitTotalCost');
+  const showNPTotalProfit = isWidgetVisible('netProfitTotalProfit');
+  const showNPTotalExpenses = isWidgetVisible('netProfitTotalExpenses');
+  const showNPNetProfitCard = isWidgetVisible('netProfitNetProfitCard');
+  const showNPGrossProfit = isWidgetVisible('netProfitGrossProfit');
+  const showNetProfitSection = showNPTotalRevenue || showNPTotalCost || showNPTotalProfit || showNPTotalExpenses || showNPNetProfitCard || showNPGrossProfit;
+  const showCompDiscCount = isWidgetVisible('compDiscCount');
+  const showCompDiscCost = isWidgetVisible('compDiscCost');
+  const showCompDiscCostPct = isWidgetVisible('compDiscCostPct');
+  const showDiscCount = isWidgetVisible('compDiscDiscCount');
+  const showDiscTotal = isWidgetVisible('compDiscDiscTotal');
+  const showDiscPct = isWidgetVisible('compDiscDiscPct');
+  const showCompByItemChart = isWidgetVisible('compDiscByItemChart');
+  const showCompByReasonChart = isWidgetVisible('compDiscByReasonChart');
+  const showComplimentaryDiscountsSection = showCompDiscCount || showCompDiscCost || showCompDiscCostPct || showDiscCount || showDiscTotal || showDiscPct || showCompByItemChart || showCompByReasonChart;
   const showRevenueTrend = isWidgetVisible('revenueTrend');
   const showRevenueByPayment = isWidgetVisible('revenueByPayment');
   const showRevenueByDow = isWidgetVisible('revenueByDow');
@@ -1715,12 +1725,12 @@ function renderDashboard(main){
     <div class="section">
       <h3><i class="fa-solid fa-arrow-trend-up"></i> Net profit</h3>
       <div class="kpi-grid">
-        <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><div class="kpi-label">Total Revenue</div><div class="kpi-value">${fmtMoney(totalRev)}</div></div>
-        <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-layer-group"></i></span><div class="kpi-label">Total Cost</div><div class="kpi-value">${fmtMoney(totalCost)}</div></div>
-        <div class="kpi-card profit ${totalProfit<0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-scale-balanced"></i></span><div class="kpi-label">Total Profit</div><div class="kpi-value">${fmtMoney(totalProfit)}</div></div>
-        <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-money-bill-transfer"></i></span><div class="kpi-label">Total Expenses</div><div class="kpi-value">${fmtMoney(totalExp)}</div></div>
-        <div class="kpi-card profit ${netProfit<0?'neg':''}"><span class="kpi-icon">${netProfit<0?'<i class="fa-solid fa-arrow-trend-down"></i>':'<i class="fa-solid fa-arrow-trend-up"></i>'}</span><div class="kpi-label">Net Profit</div><div class="kpi-value">${fmtMoney(netProfit)}</div></div>
-        <div class="kpi-card profit ${grossProfit<0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-chart-simple"></i></span><div class="kpi-label">Gross Profit</div><div class="kpi-value">${fmtMoney(grossProfit)}</div></div>
+        ${showNPTotalRevenue ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-sack-dollar"></i></span><div class="kpi-label">Total Revenue</div><div class="kpi-value">${fmtMoney(totalRev)}</div></div>` : ''}
+        ${showNPTotalCost ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-layer-group"></i></span><div class="kpi-label">Total Cost</div><div class="kpi-value">${fmtMoney(totalCost)}</div></div>` : ''}
+        ${showNPTotalProfit ? `<div class="kpi-card profit ${totalProfit<0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-scale-balanced"></i></span><div class="kpi-label">Total Profit</div><div class="kpi-value">${fmtMoney(totalProfit)}</div></div>` : ''}
+        ${showNPTotalExpenses ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-money-bill-transfer"></i></span><div class="kpi-label">Total Expenses</div><div class="kpi-value">${fmtMoney(totalExp)}</div></div>` : ''}
+        ${showNPNetProfitCard ? `<div class="kpi-card profit ${netProfit<0?'neg':''}"><span class="kpi-icon">${netProfit<0?'<i class="fa-solid fa-arrow-trend-down"></i>':'<i class="fa-solid fa-arrow-trend-up"></i>'}</span><div class="kpi-label">Net Profit</div><div class="kpi-value">${fmtMoney(netProfit)}</div></div>` : ''}
+        ${showNPGrossProfit ? `<div class="kpi-card profit ${grossProfit<0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-chart-simple"></i></span><div class="kpi-label">Gross Profit</div><div class="kpi-value">${fmtMoney(grossProfit)}</div></div>` : ''}
       </div>
       ${!hasCostData ? `<div class="hint" style="margin-top:10px;margin-bottom:0;">Total Cost is $0 because no Menu Item has a Cost set yet — add ingredient cost to items in Menu Items to see Total Cost and Gross Profit here.</div>` : `<div class="hint" style="margin-top:10px;margin-bottom:0;">Gross Profit = Total Revenue − Total Cost (ingredient cost only). Total Profit = Total Revenue − Total Expenses. Net Profit = Total Revenue − Total Expenses − Complimentary Cost (the final bottom line, after every deduction).</div>`}
     </div>` : ''}
@@ -1729,23 +1739,26 @@ function renderDashboard(main){
     <div class="section">
       <h3><i class="fa-solid fa-gift"></i> Complimentary &amp; Discounts</h3>
       <div class="cards-row mini">
-        <div class="card"><div class="label">Complimentary Count</div><div class="value">${compCount}</div></div>
-        <div class="card"><div class="label">Complimentary Cost</div><div class="value">${fmtMoney(compCostTotal)}</div></div>
-        <div class="card"><div class="label">Comp. Cost % of Revenue</div><div class="value">${(compPct*100).toFixed(1)}%</div></div>
-        <div class="card"><div class="label">Discount Count</div><div class="value">${discCount}</div></div>
-        <div class="card"><div class="label">Discount Total</div><div class="value">${fmtMoney(discTotal)}</div></div>
-        <div class="card"><div class="label">Discount % of Gross</div><div class="value">${(discPct*100).toFixed(1)}%</div></div>
+        ${showCompDiscCount ? `<div class="card"><div class="label">Complimentary Count</div><div class="value">${compCount}</div></div>` : ''}
+        ${showCompDiscCost ? `<div class="card"><div class="label">Complimentary Cost</div><div class="value">${fmtMoney(compCostTotal)}</div></div>` : ''}
+        ${showCompDiscCostPct ? `<div class="card"><div class="label">Comp. Cost % of Revenue</div><div class="value">${(compPct*100).toFixed(1)}%</div></div>` : ''}
+        ${showDiscCount ? `<div class="card"><div class="label">Discount Count</div><div class="value">${discCount}</div></div>` : ''}
+        ${showDiscTotal ? `<div class="card"><div class="label">Discount Total</div><div class="value">${fmtMoney(discTotal)}</div></div>` : ''}
+        ${showDiscPct ? `<div class="card"><div class="label">Discount % of Gross</div><div class="value">${(discPct*100).toFixed(1)}%</div></div>` : ''}
       </div>
+      ${(showCompByItemChart || showCompByReasonChart) ? `
       <div class="two-col" style="margin-top:14px;">
+        ${showCompByItemChart ? `
         <div>
           <div class="sub-h">Complimentary by item (times given)</div>
           ${barChart(compByItem)}
-        </div>
+        </div>` : ''}
+        ${showCompByReasonChart ? `
         <div>
           <div class="sub-h">Complimentary by reason (cost)</div>
           ${barChart(compByReason, true)}
-        </div>
-      </div>
+        </div>` : ''}
+      </div>` : ''}
     </div>` : ''}
 
     ${showBreakdownSection ? `
