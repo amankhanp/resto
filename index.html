@@ -343,6 +343,7 @@ let currentRestaurantName = '';
 let isOrganizer = false;
 let myRestaurants = [];
 let currentEnabledTabs = null; // array of TABS[].key strings the current owner is allowed to see; null/organizer = all
+let currentDashboardConfig = null; // { hiddenWidgets: [], hiddenChannels: [] } for the current owner; null/organizer = nothing hidden
 let viewMode = 'loading'; // 'loading' | 'orgHome' | 'ledger' | 'noAccess'
 let saveDebounceTimer = null;
 let cloudSaveInFlight = false;
@@ -410,7 +411,7 @@ async function fetchIsOrganizer(userId){
 async function fetchAllRestaurants(){
   const { data, error } = await supabaseClient
     .from('restaurants')
-    .select('id, name, created_at, enabled_tabs')
+    .select('id, name, created_at, enabled_tabs, dashboard_config')
     .order('name', { ascending: true });
   if(error){ console.error(error); return []; }
   return data || [];
@@ -419,12 +420,12 @@ async function fetchAllRestaurants(){
 async function fetchMyRestaurantMemberships(userId){
   const { data, error } = await supabaseClient
     .from('restaurant_members')
-    .select('restaurant_id, restaurants(id, name, enabled_tabs)')
+    .select('restaurant_id, restaurants(id, name, enabled_tabs, dashboard_config)')
     .eq('user_id', userId);
   if(error){ console.error(error); return []; }
   return (data || [])
     .filter(row => row.restaurants)
-    .map(row => ({ id: row.restaurants.id, name: row.restaurants.name, enabledTabs: row.restaurants.enabled_tabs }));
+    .map(row => ({ id: row.restaurants.id, name: row.restaurants.name, enabledTabs: row.restaurants.enabled_tabs, dashboardConfig: row.restaurants.dashboard_config }));
 }
 
 async function createRestaurant(name){
@@ -437,12 +438,24 @@ async function createRestaurant(name){
   return data;
 }
 
-async function updateRestaurant(restaurantId, { name, enabledTabs }){
+async function updateRestaurant(restaurantId, { name, enabledTabs, dashboardConfig }){
   const { error } = await supabaseClient
     .from('restaurants')
-    .update({ name, enabled_tabs: enabledTabs })
+    .update({ name, enabled_tabs: enabledTabs, dashboard_config: dashboardConfig })
     .eq('id', restaurantId);
   if(error) throw error;
+}
+
+async function fetchRestaurantOrderTypes(restaurantId){
+  const { data, error } = await supabaseClient
+    .from('app_state')
+    .select('data')
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+  if(error || !data || !data.data || !data.data.categories || !Array.isArray(data.data.categories.orderType) || !data.data.categories.orderType.length){
+    return ['Delivery','Pickup','Catering'];
+  }
+  return data.data.categories.orderType;
 }
 
 async function linkOwnerToRestaurant(restaurantId, email){
@@ -658,6 +671,50 @@ function getAllowedTabKeys(){
   }
   return TABS.map(t=>t.key);
 }
+
+/* =========================================================
+   DASHBOARD WIDGET VISIBILITY
+   Each widget can be individually hidden by the Organizer. Some
+   widgets are pulled from data that lives on another tab -- if that
+   tab is turned off for this restaurant, the widget auto-hides too,
+   regardless of its own toggle, since the data behind it isn't
+   something this owner can see or manage anyway.
+   ========================================================= */
+const WIDGET_REGISTRY = [
+  {key:'itemRevenue', label:'Item Revenue (KPI card)'},
+  {key:'deliveryFeeRevenue', label:'Delivery Fee Revenue (KPI card)'},
+  {key:'totalTips', label:'Total Tips (KPI card)'},
+  {key:'uniqueOrders', label:'Unique Orders (KPI card)'},
+  {key:'complimentaryCostKpi', label:'Complimentary Cost (KPI card)', dependsOnTab:'complimentary'},
+  {key:'damagesKpi', label:'Damages / Losses (KPI card)', dependsOnTab:'expenses'},
+  {key:'netProfitSection', label:'Net Profit section'},
+  {key:'complimentaryDiscountsSection', label:'Complimentary & Discounts section', dependsOnTab:'complimentary'},
+  {key:'revenueTrend', label:'Revenue trend chart', dependsOnTab:'sales'},
+  {key:'revenueByPayment', label:'Revenue by payment method', dependsOnTab:'sales'},
+  {key:'revenueByDow', label:'Revenue by day of week', dependsOnTab:'sales'},
+  {key:'expensesByCategory', label:'Expenses by category', dependsOnTab:'expenses'},
+  {key:'profitPerItem', label:'Profit per item', dependsOnTab:'menu'},
+  {key:'topCustomers', label:'Top customers', dependsOnTab:'sales'},
+  {key:'topItems', label:'Top items', dependsOnTab:'sales'},
+  {key:'lowStockItems', label:'Low stock items', dependsOnTab:'inventory'},
+];
+
+function defaultDashboardConfig(){ return { hiddenWidgets: [], hiddenChannels: [] }; }
+
+function isWidgetVisible(key){
+  if(isOrganizer) return true; // Organizer's own view is never restricted
+  const entry = WIDGET_REGISTRY.find(w=>w.key===key);
+  if(entry && entry.dependsOnTab && !getAllowedTabKeys().includes(entry.dependsOnTab)) return false;
+  const hidden = (currentDashboardConfig && currentDashboardConfig.hiddenWidgets) || [];
+  return !hidden.includes(key);
+}
+
+function isChannelVisible(channelName){
+  if(isOrganizer) return true;
+  const hidden = (currentDashboardConfig && currentDashboardConfig.hiddenChannels) || [];
+  return !hidden.some(c => (c||'').toLowerCase() === (channelName||'').toLowerCase());
+}
+
 let activeTab = 'dashboard';
 let editingId = null;
 let salesTrendGranularity = 'weekly';
@@ -758,6 +815,27 @@ async function refreshOrgRestaurantList(){
   renderAll();
 }
 
+function applyDashboardDependencies(form){
+  const tabState = {};
+  form.querySelectorAll('[data-tab-checkbox]').forEach(cb=>{ tabState[cb.value] = cb.checked; });
+  form.querySelectorAll('[data-widget-checkbox]').forEach(cb=>{
+    const dependsOn = cb.getAttribute('data-depends-tab');
+    const noteEl = form.querySelector(`[data-widget-note="${cb.value}"]`);
+    if(dependsOn && tabState[dependsOn] === false){
+      cb.checked = false;
+      cb.disabled = true;
+      if(noteEl){
+        const tabLabel = (TABS.find(t=>t.key===dependsOn)||{}).label || dependsOn;
+        noteEl.textContent = `(needs "${tabLabel}" enabled above)`;
+        noteEl.style.display = '';
+      }
+    } else {
+      cb.disabled = false;
+      if(noteEl) noteEl.style.display = 'none';
+    }
+  });
+}
+
 function renderOrgHome(main){
   main.innerHTML = `
     <h2 class="page-title">Restaurants</h2>
@@ -787,9 +865,18 @@ function renderOrgHome(main){
   } else {
     listEl.innerHTML = myRestaurants.map(r => {
       const enabled = Array.isArray(r.enabled_tabs) && r.enabled_tabs.length ? r.enabled_tabs : TABS.map(t=>t.key);
+      const dashCfg = r.dashboard_config || defaultDashboardConfig();
+      const hiddenWidgets = dashCfg.hiddenWidgets || [];
       const tabCheckboxes = TABS.map(t => `
         <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
-          <input type="checkbox" value="${t.key}" ${enabled.includes(t.key) ? 'checked' : ''}> ${t.label}
+          <input type="checkbox" data-tab-checkbox="${t.key}" value="${t.key}" ${enabled.includes(t.key) ? 'checked' : ''}> ${t.label}
+        </label>
+      `).join('');
+      const widgetCheckboxes = WIDGET_REGISTRY.map(w => `
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;" data-widget-row="${w.key}">
+          <input type="checkbox" data-widget-checkbox="${w.key}" data-depends-tab="${w.dependsOnTab||''}" value="${w.key}" ${!hiddenWidgets.includes(w.key) ? 'checked' : ''}>
+          <span>${w.label}</span>
+          <span data-widget-note="${w.key}" class="inline-note" style="display:none;"></span>
         </label>
       `).join('');
       return `
@@ -809,9 +896,9 @@ function renderOrgHome(main){
         </form>
         <div data-link-owner-msg="${r.id}"></div>
 
-        <details style="margin-top:14px;">
+        <details data-restaurant-details="${r.id}" style="margin-top:14px;">
           <summary style="cursor:pointer;font-weight:600;">Edit restaurant</summary>
-          <form data-edit-restaurant-form="${r.id}" style="margin-top:12px;">
+          <form data-edit-restaurant-form="${r.id}" data-hidden-channels='${JSON.stringify(dashCfg.hiddenChannels||[])}' style="margin-top:12px;">
             <div class="field" style="margin-bottom:12px;">
               <label>Restaurant name</label>
               <input type="text" name="name" value="${escapeHtml(r.name)}" required>
@@ -819,6 +906,16 @@ function renderOrgHome(main){
             <div class="field" style="margin-bottom:12px;">
               <label>Sections this restaurant's owner can see</label>
               <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">${tabCheckboxes}</div>
+            </div>
+            <div class="field" style="margin-bottom:12px;">
+              <label>Revenue-by-channel cards on the Dashboard</label>
+              <div data-channel-checkboxes="${r.id}" style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
+                <span class="page-sub">Loading this restaurant's order types…</span>
+              </div>
+            </div>
+            <div class="field" style="margin-bottom:12px;">
+              <label>Other Dashboard widgets</label>
+              <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">${widgetCheckboxes}</div>
             </div>
             <div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
             <div data-edit-restaurant-msg="${r.id}"></div>
@@ -831,7 +928,7 @@ function renderOrgHome(main){
     listEl.querySelectorAll('[data-open-restaurant]').forEach(btn=>{
       btn.onclick = ()=> {
         const r = myRestaurants.find(x => String(x.id) === btn.getAttribute('data-open-restaurant'));
-        openRestaurant(btn.getAttribute('data-open-restaurant'), btn.getAttribute('data-open-name'), r ? r.enabled_tabs : null);
+        openRestaurant(btn.getAttribute('data-open-restaurant'), btn.getAttribute('data-open-name'), r ? r.enabled_tabs : null, r ? r.dashboard_config : null);
       };
     });
     listEl.querySelectorAll('[data-link-owner-form]').forEach(form=>{
@@ -854,22 +951,64 @@ function renderOrgHome(main){
         btn.disabled = false;
       });
     });
+
+    // Lazily load each restaurant's real order-type names the first time
+    // its edit panel is opened, and wire up the tab <-> widget dependency
+    // graying (e.g. turning off Inventory disables Low stock items).
+    listEl.querySelectorAll('[data-restaurant-details]').forEach(details=>{
+      const restaurantId = details.getAttribute('data-restaurant-details');
+      let loaded = false;
+      details.addEventListener('toggle', async ()=>{
+        if(!details.open || loaded) return;
+        loaded = true;
+        const container = details.querySelector(`[data-channel-checkboxes="${restaurantId}"]`);
+        const form = details.querySelector(`[data-edit-restaurant-form="${restaurantId}"]`);
+        let hiddenChannels = [];
+        try{ hiddenChannels = JSON.parse(form.getAttribute('data-hidden-channels') || '[]'); }catch(e){}
+        const orderTypes = await fetchRestaurantOrderTypes(restaurantId);
+        container.innerHTML = orderTypes.map(ch => `
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+            <input type="checkbox" data-channel-checkbox value="${escapeHtml(ch)}" ${!hiddenChannels.some(h=>h.toLowerCase()===ch.toLowerCase()) ? 'checked' : ''}> ${escapeHtml(ch)} Revenue
+          </label>
+        `).join('') || `<span class="page-sub">No order types configured yet.</span>`;
+        applyDashboardDependencies(form);
+      });
+    });
+
     listEl.querySelectorAll('[data-edit-restaurant-form]').forEach(form=>{
+      applyDashboardDependencies(form);
+      form.querySelectorAll('[data-tab-checkbox]').forEach(cb=>{
+        cb.addEventListener('change', ()=> applyDashboardDependencies(form));
+      });
       form.addEventListener('submit', async (e)=>{
         e.preventDefault();
         const restaurantId = form.getAttribute('data-edit-restaurant-form');
         const name = form.querySelector('input[name=name]').value.trim();
-        const enabledTabs = Array.from(form.querySelectorAll('input[type=checkbox]:checked')).map(cb=>cb.value);
+        const enabledTabs = Array.from(form.querySelectorAll('[data-tab-checkbox]:checked')).map(cb=>cb.value);
+        const hiddenWidgets = Array.from(form.querySelectorAll('[data-widget-checkbox]'))
+          .filter(cb => !cb.checked)
+          .map(cb => cb.value);
+        const channelCbs = Array.from(form.querySelectorAll('[data-channel-checkbox]'));
+        let hiddenChannels;
+        if(channelCbs.length){
+          hiddenChannels = channelCbs.filter(cb=>!cb.checked).map(cb=>cb.value);
+        } else {
+          // Channel list never got loaded (edit panel wasn't expanded) --
+          // keep whatever was already saved instead of wiping it out.
+          try{ hiddenChannels = JSON.parse(form.getAttribute('data-hidden-channels') || '[]'); }catch(err){ hiddenChannels = []; }
+        }
         const msgEl = document.querySelector(`[data-edit-restaurant-msg="${restaurantId}"]`);
         const btn = form.querySelector('button[type=submit]');
         if(!name){ return; }
         btn.disabled = true;
         msgEl.textContent = '';
         try{
-          await updateRestaurant(restaurantId, { name, enabledTabs });
+          const dashboardConfig = { hiddenWidgets, hiddenChannels };
+          await updateRestaurant(restaurantId, { name, enabledTabs, dashboardConfig });
           if(currentRestaurantId === restaurantId){
             currentRestaurantName = name;
             currentEnabledTabs = enabledTabs;
+            currentDashboardConfig = dashboardConfig;
           }
           await refreshOrgRestaurantList();
         }catch(err){
@@ -915,6 +1054,7 @@ document.getElementById('btnBackToRestaurants').addEventListener('click', async 
   currentRestaurantId = null;
   currentRestaurantName = '';
   currentEnabledTabs = null;
+  currentDashboardConfig = null;
   await refreshOrgRestaurantList();
 });
 
@@ -1409,9 +1549,11 @@ function renderDashboard(main){
     if(k==='catering') return '<i class="fa-solid fa-champagne-glasses"></i>';
     return '<i class="fa-solid fa-utensils"></i>';
   };
-  const channelCards = Object.entries(revByChannel).map(([ch,val])=>
-    `<div class="kpi-card ${channelColorClass(ch)}"><span class="kpi-icon">${channelIcon(ch)}</span><div class="kpi-label">${ch} Revenue</div><div class="kpi-value">${fmtMoney(val)}</div></div>`
-  ).join('');
+  const channelCards = Object.entries(revByChannel)
+    .filter(([ch]) => isChannelVisible(ch))
+    .map(([ch,val])=>
+      `<div class="kpi-card ${channelColorClass(ch)}"><span class="kpi-icon">${channelIcon(ch)}</span><div class="kpi-label">${ch} Revenue</div><div class="kpi-value">${fmtMoney(val)}</div></div>`
+    ).join('');
 
   const trendData = computeSalesTrend(salesTrendGranularity);
   const topCustomers = computeTopCustomers(5);
@@ -1419,6 +1561,19 @@ function renderDashboard(main){
   const dowTrend = computeDayOfWeekTrend();
   const profitByItem = computeProfitByItem(5);
   const noDataAtAll = !state.dailySales.length && !state.expenses.length;
+
+  const showNetProfitSection = isWidgetVisible('netProfitSection');
+  const showComplimentaryDiscountsSection = isWidgetVisible('complimentaryDiscountsSection');
+  const showRevenueTrend = isWidgetVisible('revenueTrend');
+  const showRevenueByPayment = isWidgetVisible('revenueByPayment');
+  const showRevenueByDow = isWidgetVisible('revenueByDow');
+  const showExpensesByCategory = isWidgetVisible('expensesByCategory');
+  const showProfitPerItem = isWidgetVisible('profitPerItem');
+  const showBreakdownSection = showRevenueTrend || showRevenueByPayment || showRevenueByDow || showExpensesByCategory || showProfitPerItem;
+  const showTopCustomers = isWidgetVisible('topCustomers');
+  const showTopItems = isWidgetVisible('topItems');
+  const showLowStockItems = isWidgetVisible('lowStockItems');
+  const showTrophySection = showTopCustomers || showTopItems || showLowStockItems;
 
   main.innerHTML = `
     ${noDataAtAll ? `
@@ -1444,16 +1599,17 @@ function renderDashboard(main){
 
     <div class="kpi-grid">
       ${channelCards}
-      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-utensils"></i></span><div class="kpi-label">Item Revenue</div><div class="kpi-value">${fmtMoney(itemRev)}</div></div>
-      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-car"></i></span><div class="kpi-label">Delivery Fee Revenue</div><div class="kpi-value">${fmtMoney(deliveryFeeRev)}</div></div>
-      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div class="kpi-label">Total Tips</div><div class="kpi-value">${fmtMoney(totalTips)}</div></div>
-      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-receipt"></i></span><div class="kpi-label">Unique Orders</div><div class="kpi-value">${orderIds.size}</div></div>
-      <div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-gift"></i></span><div class="kpi-label">Complimentary Cost</div><div class="kpi-value">${fmtMoney(compCostTotal)}</div></div>
-      <div class="kpi-card ${damagesTotal>0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></span><div class="kpi-label">Damages / Losses</div><div class="kpi-value" style="${damagesTotal>0?'color:var(--tomato)':''}">${fmtMoney(damagesTotal)}</div>
-        ${damagesCount ? `<div class="kpi-sub">${damagesCount} entr${damagesCount===1?'y':'ies'} · ${(damagesPctOfExp*100).toFixed(1)}% of expenses</div>` : ''}</div>
+      ${isWidgetVisible('itemRevenue') ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-utensils"></i></span><div class="kpi-label">Item Revenue</div><div class="kpi-value">${fmtMoney(itemRev)}</div></div>` : ''}
+      ${isWidgetVisible('deliveryFeeRevenue') ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-car"></i></span><div class="kpi-label">Delivery Fee Revenue</div><div class="kpi-value">${fmtMoney(deliveryFeeRev)}</div></div>` : ''}
+      ${isWidgetVisible('totalTips') ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-hand-holding-dollar"></i></span><div class="kpi-label">Total Tips</div><div class="kpi-value">${fmtMoney(totalTips)}</div></div>` : ''}
+      ${isWidgetVisible('uniqueOrders') ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-receipt"></i></span><div class="kpi-label">Unique Orders</div><div class="kpi-value">${orderIds.size}</div></div>` : ''}
+      ${isWidgetVisible('complimentaryCostKpi') ? `<div class="kpi-card"><span class="kpi-icon"><i class="fa-solid fa-gift"></i></span><div class="kpi-label">Complimentary Cost</div><div class="kpi-value">${fmtMoney(compCostTotal)}</div></div>` : ''}
+      ${isWidgetVisible('damagesKpi') ? `<div class="kpi-card ${damagesTotal>0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></span><div class="kpi-label">Damages / Losses</div><div class="kpi-value" style="${damagesTotal>0?'color:var(--tomato)':''}">${fmtMoney(damagesTotal)}</div>
+        ${damagesCount ? `<div class="kpi-sub">${damagesCount} entr${damagesCount===1?'y':'ies'} · ${(damagesPctOfExp*100).toFixed(1)}% of expenses</div>` : ''}</div>` : ''}
     </div>
-    ${damagesTotal>0 ? `<div class="hint" style="margin-top:-14px;margin-bottom:22px;">Damages/losses are already included in Total Expenses below — this card just breaks out how much of it was loss (spoilage, breakage, accidents) rather than normal running cost.</div>` : ''}
+    ${(damagesTotal>0 && isWidgetVisible('damagesKpi')) ? `<div class="hint" style="margin-top:-14px;margin-bottom:22px;">Damages/losses are already included in Total Expenses below — this card just breaks out how much of it was loss (spoilage, breakage, accidents) rather than normal running cost.</div>` : ''}
 
+    ${showNetProfitSection ? `
     <div class="section">
       <h3><i class="fa-solid fa-arrow-trend-up"></i> Net profit</h3>
       <div class="kpi-grid">
@@ -1465,8 +1621,9 @@ function renderDashboard(main){
         <div class="kpi-card profit ${grossProfit<0?'neg':''}"><span class="kpi-icon"><i class="fa-solid fa-chart-simple"></i></span><div class="kpi-label">Gross Profit</div><div class="kpi-value">${fmtMoney(grossProfit)}</div></div>
       </div>
       ${!hasCostData ? `<div class="hint" style="margin-top:10px;margin-bottom:0;">Total Cost is $0 because no Menu Item has a Cost set yet — add ingredient cost to items in Menu Items to see Total Cost and Gross Profit here.</div>` : `<div class="hint" style="margin-top:10px;margin-bottom:0;">Gross Profit = Total Revenue − Total Cost (ingredient cost only). Total Profit = Total Revenue − Total Expenses. Net Profit = Total Revenue − Total Expenses − Complimentary Cost (the final bottom line, after every deduction).</div>`}
-    </div>
+    </div>` : ''}
 
+    ${showComplimentaryDiscountsSection ? `
     <div class="section">
       <h3><i class="fa-solid fa-gift"></i> Complimentary &amp; Discounts</h3>
       <div class="cards-row mini">
@@ -1487,11 +1644,13 @@ function renderDashboard(main){
           ${barChart(compByReason, true)}
         </div>
       </div>
-    </div>
+    </div>` : ''}
 
+    ${showBreakdownSection ? `
     <div class="section">
       <h3><i class="fa-solid fa-sack-dollar"></i> Expenses &amp; Revenue breakdown</h3>
       <div class="three-col">
+        ${showRevenueTrend ? `
         <div>
           <div class="sub-h">Revenue trend</div>
           <div class="period-row" style="margin-bottom:10px;">
@@ -1506,50 +1665,59 @@ function renderDashboard(main){
           </div>
           <div class="hint" style="margin-top:0;margin-bottom:10px;">Last ${salesTrendGranularity==='daily'?'3 days':salesTrendGranularity==='weekly'?'3 weeks':salesTrendGranularity==='monthly'?'3 months':'3 years'}, from today.</div>
           ${barChart(trendData, true)}
-        </div>
+        </div>` : ''}
+        ${showRevenueByPayment ? `
         <div>
           <div class="sub-h">Revenue by payment method</div>
           <div class="scroll-box bars">${barChart(revByPayment, true)}</div>
           <div class="hint">Scroll for more payment methods</div>
-        </div>
+        </div>` : ''}
+        ${showRevenueByDow ? `
         <div>
           <div class="sub-h-row"><div class="sub-h">Revenue by day of week</div><span class="inline-note">${start} to ${end}</span></div>
           ${barChart(dowTrend, true)}
-        </div>
+        </div>` : ''}
       </div>
+      ${(showExpensesByCategory || showProfitPerItem) ? `
       <div class="two-col" style="margin-top:20px;">
+        ${showExpensesByCategory ? `
         <div>
           <div class="sub-h">Expenses by category</div>
           <div class="scroll-box">${plainTable(expByCat, true, 'Category', 'Amount')}</div>
           <div class="hint">Total: ${fmtMoney(totalExp)} — scroll for more categories</div>
-        </div>
+        </div>` : ''}
+        ${showProfitPerItem ? `
         <div>
           <div class="sub-h">Profit per item</div>
           ${profitByItemTable(profitByItem.rows)}
           ${!profitByItem.hasCostData ? `<div class="empty-note">Add a "Cost" to your Menu Items to see profit here.</div>` : ''}
-        </div>
-      </div>
-    </div>
+        </div>` : ''}
+      </div>` : ''}
+    </div>` : ''}
 
+    ${showTrophySection ? `
     <div class="section">
       <h3><i class="fa-solid fa-trophy"></i> Top customers, top items &amp; low stock items</h3>
       <div class="three-col">
+        ${showTopCustomers ? `
         <div>
           <div class="sub-h">Top customers (repeat orders)</div>
           ${topCustomersTable(topCustomers)}
-        </div>
+        </div>` : ''}
+        ${showTopItems ? `
         <div>
           <div class="sub-h">Top items</div>
           ${topItemsTable(topItems)}
-        </div>
+        </div>` : ''}
+        ${showLowStockItems ? `
         <div>
           <div class="sub-h-row"><span class="sub-h">Low stock items</span><span class="count-pill" style="color:${lowStockItems.length>0?'var(--tomato)':'var(--sage)'}">${lowStockItems.length}</span></div>
           ${lowStockItems.length ? `<table><thead><tr><th>Item</th><th>Current</th><th>Reorder</th><th>Unit</th></tr></thead><tbody>
             ${lowStockItems.slice(0,5).map(i=>`<tr><td>${i.name}</td><td>${i.currentStock}</td><td>${i.reorderLevel}</td><td>${i.unit||''}</td></tr>`).join('')}
           </tbody></table>` : `<div class="empty-note">Nothing needs restocking right now.</div>`}
-        </div>
+        </div>` : ''}
       </div>
-    </div>
+    </div>` : ''}
   `;
 
   document.getElementById('applyPeriod').onclick = ()=>{
@@ -1563,11 +1731,13 @@ function renderDashboard(main){
   if(gsExp) gsExp.onclick = ()=>{ activeTab='expenses'; renderAll(); };
   const gsImp = document.getElementById('gsImport');
   if(gsImp) gsImp.onclick = ()=> document.getElementById('fileImport').click();
-  document.getElementById('trendGranularity').onchange = (e)=>{
+  const trendSel = document.getElementById('trendGranularity');
+  if(trendSel) trendSel.onchange = (e)=>{
     salesTrendGranularity = e.target.value;
     renderAll();
   };
 }
+
 
 function barChart(dataObj, isMoney){
   const entries = Object.entries(dataObj);
@@ -2400,10 +2570,11 @@ function showAppShell(){
   document.getElementById('appShell').style.display = '';
 }
 
-async function openRestaurant(restaurantId, restaurantName, enabledTabs){
+async function openRestaurant(restaurantId, restaurantName, enabledTabs, dashboardConfig){
   currentRestaurantId = restaurantId;
   currentRestaurantName = restaurantName || '';
   currentEnabledTabs = Array.isArray(enabledTabs) ? enabledTabs : null;
+  currentDashboardConfig = dashboardConfig || defaultDashboardConfig();
   viewMode = 'ledger';
   activeTab = 'dashboard';
   document.getElementById('loginLoading').style.display = 'block';
@@ -2468,7 +2639,7 @@ async function bootApp(user){
   // An owner is expected to have exactly one restaurant. If they somehow
   // have more than one, open the first — they can be re-linked by the
   // Organizer if that's ever wrong.
-  await openRestaurant(memberships[0].id, memberships[0].name, memberships[0].enabledTabs);
+  await openRestaurant(memberships[0].id, memberships[0].name, memberships[0].enabledTabs, memberships[0].dashboardConfig);
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
@@ -2495,6 +2666,7 @@ document.getElementById('btnSignOut').addEventListener('click', async ()=>{
   currentRestaurantId = null;
   currentRestaurantName = '';
   currentEnabledTabs = null;
+  currentDashboardConfig = null;
   isOrganizer = false;
   myRestaurants = [];
   viewMode = 'loading';
